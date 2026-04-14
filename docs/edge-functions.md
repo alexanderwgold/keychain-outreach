@@ -32,9 +32,10 @@ All Edge Functions run on Supabase (Deno runtime). Deploy via `mcp__supabase__de
 
 #### Step 1 — SF report email sync
 - Search Gmail for emails from `reports@salesforce.com` with the SF report subject line, received today
-- Parse the HTML table or CSV attachment for: Opportunity Name, Stage, Close Date, Amount, Next Step
-- Diff each field against the current `opportunities` row
-- On any change: update the `opportunities` row, set `last_sf_sync_at = now()`, insert an `activity_log` row with `source: sf_report` and `notes` describing what changed
+- Parse the CSV attachment. Match each row to `opportunities` by `Opportunity ID` → `sf_opportunity_id`
+- Update fields: `stage_name`, `amount`, `next_step`, `opportunity_name`, `account_name`, `categories`, `company_category`. Also set `rep_email` directly from `Opportunity Owner Email` — no `rep_mapping` lookup needed here
+- **Do not update `close_date`** — it is not in the SF report; it comes from the contacts CSV only
+- Diff each field against the current `opportunities` row. On any change: update the row, set `last_sf_sync_at = now()`, insert an `activity_log` row with `source: sf_report` and `notes` describing what changed
 - Stage changes feed immediately into cadence evaluation (step 6)
 
 #### Step 2 — Gmail scan
@@ -82,8 +83,8 @@ After successful completion, update `rep_tokens.last_scan_at = now()`.
 
 1. Pull all Google Calendar events for the upcoming 7 days
 2. For each event, match attendee emails against `contacts.email`
-3. Upsert matching events into `upcoming_meetings` with `inferred_type` (infer from meeting title keywords: "intro", "demo", "proposal", "negotiation", "check-in")
-4. Detect stage progression: if a rep had an intro meeting last week (from `activity_log`) and now has a demo scheduled, set `stage_progression_detected = true`
+3. Upsert matching events into `upcoming_meetings` with `inferred_type`. Infer by matching the calendar event title (case-insensitive): "intro" → `intro`, "meeting" → `meeting` (these are demos — reps name demo calls "Meeting" in GCal), "proposal" → `proposal`, "next steps" → `next_steps`, "catch" → `catch_up`. No keyword match → `unknown`.
+4. Detect stage progression: if a rep had an intro meeting last week (from `activity_log`) and now has a `meeting` or `proposal` scheduled, set `stage_progression_detected = true`
 5. For progression events: call AI drafting to create a value-add between-meeting touchpoint as a Gmail draft (with relevant collateral attached). Set `touchpoint_drafted = true`
 6. For any upcoming meeting with no prep email logged in `activity_log`:
    - Create a Gmail draft with pre-meeting materials (agenda, relevant case study)
