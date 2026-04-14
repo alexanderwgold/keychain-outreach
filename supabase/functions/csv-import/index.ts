@@ -14,11 +14,21 @@ serve(async (req: Request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  // Only allow calls from the service-role key (admin-only operation).
+  // Auth is handled by Supabase gateway (verify_jwt: true).
+  // The service-role key is a valid JWT that passes gateway verification.
+  // We check the role claim to ensure only service_role can call this.
   const authHeader = req.headers.get("Authorization") ?? "";
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  if (authHeader !== `Bearer ${serviceRoleKey}`) {
+  if (!authHeader.startsWith("Bearer ")) {
     return json({ error: "Unauthorized" }, 401);
+  }
+  try {
+    const token = authHeader.replace("Bearer ", "");
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.role !== "service_role") {
+      return json({ error: "Forbidden: service_role required" }, 403);
+    }
+  } catch {
+    return json({ error: "Invalid token" }, 401);
   }
 
   let csvText: string;
