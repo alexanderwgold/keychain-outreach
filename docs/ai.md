@@ -94,8 +94,8 @@ It should be stored in a location accessible to Edge Functions (e.g., Supabase S
 | Signal | Draft type |
 |--------|-----------|
 | Contact overdue by 2× cadence threshold | Escalated follow-up (more urgent tone) |
-| Stage progression detected (e.g., intro → demo) | Value-add between-meeting touchpoint |
-| Demo completed, proposal not yet sent | ROI-focused email or case study |
+| Stage progression detected (e.g., intro → meeting) | Value-add between-meeting touchpoint |
+| Meeting completed, proposal not yet sent | ROI-focused email or case study |
 | Reply received from contact | Suggested response |
 | New contact added via CSV | Initial outreach with stage-appropriate messaging |
 | Meeting scheduled, no prep email sent | Pre-meeting prep email |

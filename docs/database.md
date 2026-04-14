@@ -27,13 +27,15 @@ Core entity. Imported from SF CSV; updated daily by SF report email parsing.
 | manufacturer_id | text | |
 | opportunity_name | text | |
 | opp_owner | text | SF display name (e.g. "Wesley Phillips") |
-| rep_email | text | mapped via `rep_mapping`; set on upsert |
+| rep_email | text | set from `Opportunity Owner Email` in SF report; falls back to `rep_mapping` lookup on CSV import |
 | stage_name | text | updated by SF report email parse |
-| close_date | date | updated by SF report email parse |
+| close_date | date | from CSV (SF report does not include close_date) |
 | amount | numeric | updated by SF report email parse |
 | next_step | text | updated by SF report email parse |
 | next_steps_c | text | from CSV |
 | description | text | from CSV |
+| categories | text | from SF report `Categories` (comma-separated product categories) |
+| company_category | text | from SF report `Company Category` (e.g. "Contract Manufacturer") |
 | last_sf_sync_at | timestamptz | when SF report email last updated this row |
 | created_at | timestamptz | auto |
 | updated_at | timestamptz | auto |
@@ -139,7 +141,7 @@ Populated (upserted) by the weekly Monday cron. One row per matched meeting.
 | meeting_title | text | from calendar event |
 | meeting_date | timestamptz | |
 | attendees | jsonb | list of attendee emails |
-| inferred_type | enum | `intro`, `demo`, `proposal_review`, `negotiation`, `check_in`, `unknown` |
+| inferred_type | enum | `intro`, `meeting`, `proposal`, `next_steps`, `catch_up`, `unknown` |
 | stage_progression_detected | boolean | true if this represents deal advancement |
 | touchpoint_drafted | boolean | whether a between-meeting draft was generated |
 | followup_drafted | boolean | whether a post-meeting follow-up was generated |
@@ -158,6 +160,42 @@ Google OAuth credentials per rep. **Refresh tokens are stored encrypted via Supa
 | scopes | text[] | granted OAuth scopes |
 | last_scan_at | timestamptz | updated after each successful daily scan |
 | is_active | boolean | false = skip in scans (no need to delete) |
+| created_at | timestamptz | auto |
+
+### `collateral`
+
+Content and marketing pieces available to attach to Gmail drafts. Populated manually or via admin upload. The AI drafting engine selects relevant pieces by matching `stage_names` and `tags` to the opportunity's context.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | auto |
+| title | text | display name of the piece |
+| description | text | brief summary for AI context |
+| file_url | text | link to the stored file (Google Drive, etc.) |
+| type | text | `case_study`, `one_pager`, `deck`, `data_sheet`, `template` |
+| stage_names | text[] | SF stage names this piece is relevant for; empty = all stages |
+| tags | text[] | free-form tags: industry, category, use case — used by AI for matching |
+| is_active | boolean | false = exclude from drafting engine |
+| created_at | timestamptz | auto |
+| updated_at | timestamptz | auto |
+
+### `supplier_stats`
+
+Metabase category search data per manufacturer. Joined to `opportunities` on `manufacturer_name ≈ account_name` (text match, not a FK — names may have minor variations). Updated periodically via CSV upload from Metabase.
+
+The AI drafting engine uses this data to personalize outreach with category-specific search volume stats (e.g., "there are X buyers actively searching in your category on Keychain right now").
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | auto |
+| manufacturer_name | text unique | matches `opportunities.account_name` |
+| tagged_micro_cat_projects_last_365_days | int | buyer projects in tagged categories (365 days) |
+| tagged_micro_cat_projects_last_90_days | int | buyer projects in tagged categories (90 days) |
+| tagged_micro_cat_verified_projects_last_365_days | int | verified projects only (365 days) |
+| tagged_micro_cat_verified_projects_last_90_days | int | verified projects only (90 days) |
+| tagged_micro_cat_views_last_365_days | int | category page views (365 days) |
+| tagged_micro_cat_views_last_90_days | int | category page views (90 days) |
+| updated_at | timestamptz | when this row was last imported from Metabase |
 | created_at | timestamptz | auto |
 
 ---

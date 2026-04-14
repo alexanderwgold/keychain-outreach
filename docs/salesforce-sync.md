@@ -50,21 +50,38 @@ Re-uploads are safe: all operations use upsert on SF IDs. Existing activity_log 
 This runs as **Step 1 of the daily scan** for each rep. See `docs/edge-functions.md` for the full daily scan flow.
 
 ### SF report setup (one-time, requires SF admin)
-- Create a scheduled report in Salesforce: open opportunities by owner, columns: Opportunity Name, Stage, Close Date, Amount, Next Step
+- Create a scheduled report in Salesforce: open opportunities by owner, with the following columns (confirmed from `report1776192631046.csv`):
+  `Opportunity Name`, `Amount`, `Account Name`, `Stage`, `Stage Duration`, `Next Step`, `Company Category`, `Industry`, `Square Footage`, `Categories`, `Last Activity`, `Account Type`, `Fiscal Period`, `Probability (%)`, `Opportunity Owner`, `Opportunity Owner Email`, `Opportunity ID`
 - Schedule it to email each rep at **2:00pm ET daily** (so it arrives before the 3:30pm scan)
 - The email will come from `reports@salesforce.com` with a consistent subject line
 
+### SF report column → DB field mapping
+
+| SF report column | Maps to | Notes |
+|-----------------|---------|-------|
+| `Opportunity ID` | `opportunities.sf_opportunity_id` | **Primary match key.** Never changes. |
+| `Opportunity Owner Email` | `opportunities.rep_email` | Set directly — no `rep_mapping` lookup needed for sync |
+| `Stage` | `opportunities.stage_name` | Diff and update |
+| `Amount` | `opportunities.amount` | Diff and update |
+| `Next Step` | `opportunities.next_step` | Diff and update |
+| `Opportunity Name` | `opportunities.opportunity_name` | Diff and update |
+| `Account Name` | `opportunities.account_name` | Diff and update |
+| `Categories` | `opportunities.categories` | Diff and update (comma-separated product categories) |
+| `Company Category` | `opportunities.company_category` | Diff and update |
+
+**Not in the SF report:** `close_date` — this only comes from the contacts CSV. Do not overwrite it during report sync.
+
 ### Parsing logic
 1. Search the rep's Gmail for an email from `reports@salesforce.com` received today
-2. Identify it by sender + subject line (subject line format is determined during Day 2 testing)
-3. Parse the HTML table body or CSV attachment — extract: Opportunity Name, Stage, Close Date, Amount, Next Step
-4. For each row, find the matching `opportunities` row by `account_name` / `opportunity_name`
-5. Diff each field against current DB values
+2. Identify it by sender + subject line (subject line format determined during Day 2 testing with Alex's inbox)
+3. Parse the CSV attachment — extract all columns listed in the mapping table above
+4. For each row, match to `opportunities` using `Opportunity ID` → `sf_opportunity_id`
+5. Diff each mapped field against current DB values
 6. On any change:
-   - Update the `opportunities` row
+   - Update the `opportunities` row, including setting `rep_email` from `Opportunity Owner Email`
    - Set `last_sf_sync_at = now()`
-   - Insert an `activity_log` row: `source: sf_report`, `notes: "Stage changed from X to Y"` (or similar)
+   - Insert an `activity_log` row: `source: sf_report`, `notes: "Stage changed from X to Y"` (or similar per field)
 7. Stage changes trigger immediate recalculation of cadence — if a stage just changed, use the new stage's cadence rules for that rep's digest
 
 ### Open question
-The exact HTML structure of the SF report email is unverified. Must test with a real email from Alex's inbox during Day 2 development before hardcoding the parser. Do not assume table column order.
+The exact format of the SF report email attachment (HTML table vs. CSV file) is unverified. Must test with a real email from Alex's inbox during Day 2 development. The column structure is confirmed from the sample CSV — do not assume column order when parsing.
