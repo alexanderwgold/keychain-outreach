@@ -52,9 +52,9 @@
       "computedHash": "669a671f855be8773e4c2936e54d4243fbd1d273f87633158544efe3dbc4d825"
     },
     "frontend-design": {
-      "source": "anthropics/skills",
+      "source": "vercel-labs/open-agents",
       "sourceType": "github",
-      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+      "computedHash": "9499ab7bccec7baa6b520fe8cdd73268de1721b58f949bb9351e5b51f99f02dc"
     },
     "impeccable": {
       "source": "pbakaus/impeccable",
