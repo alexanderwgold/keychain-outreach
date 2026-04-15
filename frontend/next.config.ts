@@ -15,9 +15,5 @@ export default withSentryConfig(nextConfig, {
 
   tunnelRoute: "/monitoring",
 
-  sourcemaps: {
-    filesToDeleteAfterUpload: [".next/static/**/*.map"],
-  },
-
   silent: !process.env.CI,
 });

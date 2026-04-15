@@ -4,69 +4,41 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Keychain "Warm Precision" Design Tokens
- *
- * Brand: warm gold (#F5C518) on calm neutrals
- * Approach: Bloomberg density meets airy clarity
- * Rule: gold is earned — use only for primary actions and active states
- */
-
 @theme inline {
-  /* Shadcn token mappings */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
-
-  /* Font stacks */
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-inter);
-  --font-heading: var(--font-inter);
-
-  /* Keychain brand colors (available as Tailwind utilities) */
-  --color-kc-gold: #F5C518;
-  --color-kc-gold-light: #FFF3C4;
-  --color-kc-gold-dark: #D4A012;
-  --color-kc-gold-subtle: #FFFDF0;
-  --color-kc-charcoal: #1C1C1E;
-  --color-kc-warm-white: #FAFAF8;
-  --color-kc-warm-gray: #F0EEEB;
-  --color-kc-warm-gray-dark: #E0DDD8;
-  --color-kc-text: #2C2C2E;
-  --color-kc-text-muted: #8E8E93;
-  --color-kc-success: #34C759;
-  --color-kc-warning: #FF9500;
-  --color-kc-danger: #FF3B30;
-
-  /* Radius */
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -77,78 +49,72 @@
 }
 
 :root {
-  /* Keychain light theme — warm whites + gold accents */
-  --background: #FAFAF8;
-  --foreground: #2C2C2E;
-  --card: #FFFFFF;
-  --card-foreground: #2C2C2E;
-  --popover: #FFFFFF;
-  --popover-foreground: #2C2C2E;
-  --primary: #F5C518;
-  --primary-foreground: #1C1C1E;
-  --secondary: #F0EEEB;
-  --secondary-foreground: #2C2C2E;
-  --muted: #F0EEEB;
-  --muted-foreground: #8E8E93;
-  --accent: #FFF3C4;
-  --accent-foreground: #2C2C2E;
-  --destructive: #FF3B30;
-  --border: #E0DDD8;
-  --input: #E0DDD8;
-  --ring: #F5C518;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-
-  /* Chart colors — gold gradient for Keychain brand cohesion */
-  --chart-1: #F5C518;
-  --chart-2: #D4A012;
-  --chart-3: #34C759;
-  --chart-4: #FF9500;
-  --chart-5: #8E8E93;
-
-  /* Sidebar — dark charcoal (Bloomberg nod) */
-  --sidebar: #1C1C1E;
-  --sidebar-foreground: #FAFAF8;
-  --sidebar-primary: #F5C518;
-  --sidebar-primary-foreground: #1C1C1E;
-  --sidebar-accent: #2C2C2E;
-  --sidebar-accent-foreground: #FAFAF8;
-  --sidebar-border: #3A3A3C;
-  --sidebar-ring: #F5C518;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 .dark {
-  /* Dark theme — for future use. Keep charcoal base + gold accents */
-  --background: #1C1C1E;
-  --foreground: #FAFAF8;
-  --card: #2C2C2E;
-  --card-foreground: #FAFAF8;
-  --popover: #2C2C2E;
-  --popover-foreground: #FAFAF8;
-  --primary: #F5C518;
-  --primary-foreground: #1C1C1E;
-  --secondary: #3A3A3C;
-  --secondary-foreground: #FAFAF8;
-  --muted: #3A3A3C;
-  --muted-foreground: #8E8E93;
-  --accent: #3A3A3C;
-  --accent-foreground: #FAFAF8;
-  --destructive: #FF453A;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #F5C518;
-  --chart-1: #F5C518;
-  --chart-2: #D4A012;
-  --chart-3: #30D158;
-  --chart-4: #FF9F0A;
-  --chart-5: #8E8E93;
-  --sidebar: #000000;
-  --sidebar-foreground: #FAFAF8;
-  --sidebar-primary: #F5C518;
-  --sidebar-primary-foreground: #1C1C1E;
-  --sidebar-accent: #1C1C1E;
-  --sidebar-accent-foreground: #FAFAF8;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #F5C518;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
