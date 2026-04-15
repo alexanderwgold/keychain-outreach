@@ -1,6 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -10,8 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { LogOut, Settings } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import * as Sentry from "@sentry/nextjs"
 
 interface UserMenuProps {
   name: string
@@ -28,18 +25,9 @@ function getInitials(name: string): string {
 }
 
 export function UserMenu({ name, email }: UserMenuProps) {
-  const router = useRouter()
-
-  async function handleSignOut() {
-    const supabase = createClient()
-    Sentry.setUser(null)
-    await supabase.auth.signOut()
-    router.push("/")
-  }
-
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/10" aria-label="User menu">
+      <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/10">
         <Avatar className="h-7 w-7 border border-white/20">
           <AvatarFallback className="bg-kc-gold text-xs font-semibold text-kc-charcoal">
             {getInitials(name)}
@@ -60,7 +48,7 @@ export function UserMenu({ name, email }: UserMenuProps) {
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive" onClick={handleSignOut}>
+        <DropdownMenuItem className="text-destructive">
           <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </DropdownMenuItem>
