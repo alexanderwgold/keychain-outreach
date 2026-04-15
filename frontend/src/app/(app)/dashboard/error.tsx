@@ -20,7 +20,7 @@ export default function DashboardError({
         Something went wrong
       </h2>
       <p className="mt-2 text-kc-text-muted">
-        {error.message || "Failed to load your dashboard."}
+        {"Failed to load your dashboard."}
       </p>
       <button
         onClick={unstable_retry}

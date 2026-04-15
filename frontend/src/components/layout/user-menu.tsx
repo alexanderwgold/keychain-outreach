@@ -27,7 +27,7 @@ function getInitials(name: string): string {
 export function UserMenu({ name, email }: UserMenuProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/10">
+      <DropdownMenuTrigger aria-label="User menu" className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-white/10">
         <Avatar className="h-7 w-7 border border-white/20">
           <AvatarFallback className="bg-kc-gold text-xs font-semibold text-kc-charcoal">
             {getInitials(name)}

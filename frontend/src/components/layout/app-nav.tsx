@@ -37,7 +37,7 @@ export function AppNav() {
                   : "text-white/60 hover:bg-white/5 hover:text-white/90"
               )}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="h-4 w-4" aria-hidden={true} />
               {label}
             </Link>
           )
