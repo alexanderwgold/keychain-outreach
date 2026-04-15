@@ -20,13 +20,11 @@ export function UrgencyDot({ level, daysSinceTouch, threshold }: UrgencyDotProps
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="relative flex h-3 w-3" aria-label={label}>
-          {level === "overdue" && (
-            <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-50", URGENCY_COLORS[level])} />
-          )}
-          <span className={cn("relative inline-flex h-3 w-3 rounded-full", URGENCY_COLORS[level])} />
-        </span>
+      <TooltipTrigger render={<span className="relative flex h-3 w-3" aria-label={label} />}>
+        {level === "overdue" && (
+          <span className={cn("absolute inline-flex h-full w-full animate-ping rounded-full opacity-50", URGENCY_COLORS[level])} />
+        )}
+        <span className={cn("relative inline-flex h-3 w-3 rounded-full", URGENCY_COLORS[level])} />
       </TooltipTrigger>
       <TooltipContent side="right">
         <p className="text-xs">{label}</p>
