@@ -24,7 +24,7 @@ export function AppNav() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/10 bg-kc-charcoal px-6">
       <Link href="/dashboard" className="flex items-center">
-        <KeychainLogo size="sm" className="[&_span]:text-white" />
+        <KeychainLogo size="sm" showSparkle={false} className="[&_span]:text-white" />
       </Link>
 
       <nav className="flex items-center gap-1">
