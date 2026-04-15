@@ -51,7 +51,7 @@ export function PipelineFilters() {
       </div>
       <Select
         value={currentStage || "all"}
-        onValueChange={(value) => updateParams("stage", !value || value === "all" ? "" : value)}
+        onValueChange={(value) => updateParams("stage", value === "all" ? "" : value)}
       >
         <SelectTrigger className="w-full sm:w-[220px]">
           <SelectValue placeholder="All stages" />

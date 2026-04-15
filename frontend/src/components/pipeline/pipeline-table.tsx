@@ -1,5 +1,3 @@
-"use client"
-
 import {
   Table,
   TableBody,
@@ -9,11 +7,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { Mail, ChevronLeft, ChevronRight } from "lucide-react"
 import { StageBadge } from "./stage-badge"
 import { UrgencyDot } from "./urgency-dot"
 import { EmptyState } from "@/components/dashboard/empty-state"
-import { DraftTrigger } from "@/components/drafting/draft-trigger"
 import { formatCurrency, getUrgencyLevel } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { PipelineResult } from "@/lib/data/pipeline"
@@ -88,17 +85,14 @@ export function PipelineTable({ data, basePath }: PipelineTableProps) {
                   {formatCurrency(row.amount)}
                 </TableCell>
                 <TableCell>
-                  <DraftTrigger
-                    contactName={row.contactName}
-                    contactTitle={row.contactTitle}
-                    contactEmail={row.contactEmail}
-                    accountName={row.accountName}
-                    stageName={row.stageName}
-                    opportunityId={row.opportunityId}
+                  <Button
                     size="sm"
                     variant="ghost"
                     className="gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
-                  />
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    Draft
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
