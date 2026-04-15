@@ -14,6 +14,8 @@ export function SparkleIcon({ className, size = 16 }: SparkleIconProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("text-kc-gold", className)}
+      aria-hidden="true"
+      focusable="false"
     >
       <path
         d="M8 0C8 0 9.5 5.5 8 8C6.5 10.5 0 8 0 8C0 8 6.5 9.5 8 8C9.5 6.5 8 0 8 0Z"

@@ -20,7 +20,7 @@ export default function PipelineError({
         Something went wrong
       </h2>
       <p className="mt-2 text-kc-text-muted">
-        {error.message || "Failed to load your pipeline."}
+        {"Failed to load your pipeline."}
       </p>
       <button
         onClick={unstable_retry}
