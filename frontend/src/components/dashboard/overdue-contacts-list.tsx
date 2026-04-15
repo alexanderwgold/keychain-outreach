@@ -1,9 +1,11 @@
+"use client"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { AlertTriangle, Mail } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { StageBadge } from "@/components/pipeline/stage-badge"
 import { UrgencyDot } from "@/components/pipeline/urgency-dot"
 import { EmptyState } from "./empty-state"
+import { DraftTrigger } from "@/components/drafting/draft-trigger"
 import { formatDaysAgo, getUrgencyLevel } from "@/lib/format"
 import type { PipelineContact } from "@/lib/types"
 
@@ -68,10 +70,17 @@ export function OverdueContactsList({ contacts }: OverdueContactsListProps) {
                   )}
                 </div>
 
-                <Button size="sm" variant="outline" className="shrink-0 gap-1.5 border-kc-gold/50 text-kc-charcoal hover:bg-kc-gold/10">
-                  <Mail className="h-3.5 w-3.5" />
-                  Draft
-                </Button>
+                <DraftTrigger
+                  contactName={`${item.contact.first_name} ${item.contact.last_name}`}
+                  contactTitle={item.contact.title}
+                  contactEmail={item.contact.email}
+                  accountName={item.opportunity.account_name}
+                  stageName={item.opportunity.stage_name}
+                  opportunityId={item.opportunity.id}
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1.5 border-kc-gold/50 text-kc-charcoal hover:bg-kc-gold/10"
+                />
               </div>
             ))}
           </div>
