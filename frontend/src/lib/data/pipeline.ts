@@ -90,7 +90,9 @@ export async function getPipelineData(
     for (const opp of opportunities) {
       const oppContacts = opp.opportunity_contacts ?? []
       const primaryOc = oppContacts.find((oc: { primary: boolean }) => oc.primary)
-      const contact = primaryOc?.contacts ?? oppContacts[0]?.contacts
+      const rawContact = primaryOc?.contacts ?? oppContacts[0]?.contacts
+      // Supabase returns joined rows as arrays; normalise to a single object
+      const contact = Array.isArray(rawContact) ? rawContact[0] : rawContact
 
       if (!contact) continue
 
