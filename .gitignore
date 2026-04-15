@@ -5,6 +5,7 @@
 .claude/skills/
 .claude/agent-memory/
 .claude/agents/
+.claude/worktrees/
 .claude/settings.local.json
 .adal/
 .augment/
