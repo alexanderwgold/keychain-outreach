@@ -20,7 +20,7 @@ export default function AdminError({
         Something went wrong
       </h2>
       <p className="mt-2 text-kc-text-muted">
-        {"Failed to load admin dashboard."}
+        {error.message || "Failed to load admin dashboard."}
       </p>
       <button
         onClick={unstable_retry}

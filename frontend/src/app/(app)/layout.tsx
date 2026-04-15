@@ -1,5 +1,3 @@
-import { AppNav } from "@/components/layout/app-nav"
-
 export default function AppLayout({
   children,
 }: {
@@ -7,7 +5,7 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <AppNav />
+      {/* Nav bar will be added in Task 8 */}
       <main className="flex-1 p-6">{children}</main>
     </div>
   )

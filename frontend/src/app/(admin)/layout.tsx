@@ -1,5 +1,3 @@
-import { AppNav } from "@/components/layout/app-nav"
-
 export default function AdminLayout({
   children,
 }: {
@@ -7,7 +5,7 @@ export default function AdminLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <AppNav />
+      {/* Admin nav will be added later */}
       <main className="flex-1 p-6">{children}</main>
     </div>
   )
