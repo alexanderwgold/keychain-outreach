@@ -79,20 +79,8 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
   function handlePopOut() {
     const popup = window.open("", "_blank", "width=700,height=800,scrollbars=yes")
     if (!popup) return
-
-    // Build DOM safely to prevent XSS from user-controlled content
-    const doc = popup.document
-    doc.write(`<!DOCTYPE html><html><head><title>Draft Email</title><style>body{font-family:Inter,system-ui,sans-serif;padding:24px;color:#2C2C2E}.field{margin-bottom:12px}.field label{display:block;font-size:12px;font-weight:600;color:#8E8E93;margin-bottom:4px}.field input{width:100%;padding:8px;border:1px solid #E0DDD8;border-radius:6px;font-size:14px;box-sizing:border-box}.editor{border:1px solid #E0DDD8;border-radius:6px;padding:16px;min-height:300px;font-size:14px;line-height:1.6}.btn{padding:8px 16px;background:#F5C518;color:#1C1C1E;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-top:16px}</style></head><body><div class="field"><label>To</label><input id="to" type="text"/></div><div class="field"><label>Subject</label><input id="subject" type="text"/></div><div id="editor" class="editor" contenteditable="true"></div><button class="btn">Create Gmail Draft</button></body></html>`)
-    doc.close()
-
-    // Set values via DOM properties (safe from injection)
-    const toInput = doc.getElementById("to") as HTMLInputElement | null
-    const subjectInput = doc.getElementById("subject") as HTMLInputElement | null
-    const editorDiv = doc.getElementById("editor")
-
-    if (toInput) toInput.value = contact?.contactEmail ?? ""
-    if (subjectInput) subjectInput.value = subjectLine
-    if (editorDiv) editorDiv.innerHTML = editorContent
+    popup.document.write(`<!DOCTYPE html><html><head><title>Draft: ${subjectLine}</title><style>body{font-family:Inter,system-ui,sans-serif;padding:24px;color:#2C2C2E}.field{margin-bottom:12px}.field label{display:block;font-size:12px;font-weight:600;color:#8E8E93;margin-bottom:4px}.field input{width:100%;padding:8px;border:1px solid #E0DDD8;border-radius:6px;font-size:14px;box-sizing:border-box}.editor{border:1px solid #E0DDD8;border-radius:6px;padding:16px;min-height:300px;font-size:14px;line-height:1.6}.btn{padding:8px 16px;background:#F5C518;color:#1C1C1E;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-top:16px}</style></head><body><div class="field"><label>To</label><input type="text" value="${contact?.contactEmail ?? ""}"/></div><div class="field"><label>Subject</label><input type="text" value="${subjectLine}"/></div><div class="editor" contenteditable="true">${editorContent}</div><button class="btn">Create Gmail Draft</button></body></html>`)
+    popup.document.close()
   }
 
   return (
