@@ -16,7 +16,7 @@ export function AppNav() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-white/10 bg-kc-charcoal px-4">
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-between border-b border-white/10 bg-kc-charcoal px-6">
       {/* Left: logo */}
       <Link href="/dashboard" className="flex items-center">
         <KeychainLogo size="sm" className="[&_span]:text-white" />
