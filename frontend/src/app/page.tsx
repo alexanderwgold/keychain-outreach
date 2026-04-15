@@ -16,8 +16,8 @@ export default async function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-kc-warm-white px-4">
       <div className="w-full max-w-sm space-y-8 text-center">
         <div className="space-y-3">
-          <KeychainLogo size="lg" className="justify-center" />
-          <p className="text-lg text-kc-text-muted">Outreach Tool</p>
+          <KeychainLogo size="lg" showSparkle={false} className="justify-center" />
+          <p className="text-lg text-kc-text">Outreach Tool</p>
         </div>
 
         <div className="rounded-xl border border-kc-warm-gray-dark bg-white p-8 shadow-sm">
