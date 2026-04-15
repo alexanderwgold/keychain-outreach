@@ -47,9 +47,9 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* Font stacks */
-  --font-sans: var(--font-dm-sans);
-  --font-mono: var(--font-jetbrains-mono);
-  --font-heading: var(--font-dm-sans);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-inter);
+  --font-heading: var(--font-inter);
 
   /* Keychain brand colors (available as Tailwind utilities) */
   --color-kc-gold: #F5C518;
