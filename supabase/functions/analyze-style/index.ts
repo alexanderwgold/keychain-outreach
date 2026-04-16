@@ -48,6 +48,17 @@ function isInternalOnly(recipients: string): boolean {
   return list.every((r) => r.includes(INTERNAL_DOMAIN));
 }
 
+/**
+ * Decode a Gmail base64url-encoded body as UTF-8 text. Plain `atob` returns
+ * a binary string, which corrupts multi-byte UTF-8 sequences (any non-ASCII
+ * character). We rebuild bytes first, then run TextDecoder.
+ */
+function decodeBase64UrlUtf8(data: string): string {
+  const binary = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
 function extractPlainText(payload: Record<string, unknown>): string {
   const parts = (payload.parts as Record<string, unknown>[]) ?? [];
 
@@ -55,7 +66,7 @@ function extractPlainText(payload: Record<string, unknown>): string {
   for (const part of parts) {
     if (part.mimeType === "text/plain" && (part.body as Record<string, unknown>)?.data) {
       const data = (part.body as Record<string, unknown>).data as string;
-      return atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+      return decodeBase64UrlUtf8(data);
     }
   }
 
@@ -63,7 +74,7 @@ function extractPlainText(payload: Record<string, unknown>): string {
   for (const part of parts) {
     if (part.mimeType === "text/html" && (part.body as Record<string, unknown>)?.data) {
       const data = (part.body as Record<string, unknown>).data as string;
-      const html = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+      const html = decodeBase64UrlUtf8(data);
       return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     }
   }
@@ -71,7 +82,7 @@ function extractPlainText(payload: Record<string, unknown>): string {
   // Single-part message (no parts array)
   if ((payload.body as Record<string, unknown>)?.data) {
     const data = (payload.body as Record<string, unknown>).data as string;
-    const decoded = atob(data.replace(/-/g, "+").replace(/_/g, "/"));
+    const decoded = decodeBase64UrlUtf8(data);
     if ((payload.mimeType as string)?.includes("html")) {
       return decoded.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     }
@@ -282,6 +293,24 @@ Respond with ONLY the JSON object and nothing else — no prose before or after.
       styleResult = JSON.parse(match[0]);
     } catch {
       return jsonResponse({ error: "Failed to parse style analysis result" }, 502);
+    }
+
+    // Guardrail: before we persist Claude's output, make sure every required
+    // field is a non-empty string. Without this check we could write partial
+    // or malformed profiles (e.g. undefined values becoming NULL columns).
+    const requiredFields = [
+      "toneAndVoice",
+      "openingStyle",
+      "closingAndSignoff",
+      "thingsToAvoid",
+      "examplePhrases",
+    ] as const;
+    for (const field of requiredFields) {
+      const value = (styleResult as Record<string, unknown>)[field];
+      if (typeof value !== "string" || !value.trim()) {
+        console.error(`Style result missing/invalid field: ${field}`);
+        return jsonResponse({ error: "Claude returned incomplete style profile" }, 502);
+      }
     }
 
     // Step 9: Upsert into rep_style_guides

@@ -1,5 +1,12 @@
 const SLACK_API = "https://slack.com/api";
 
+/**
+ * Per-request timeout for every Slack API call. Without this, a hung
+ * connection lets daily-scan block until the 300s Edge Function ceiling,
+ * wasting CPU and potentially missing subsequent work.
+ */
+const SLACK_TIMEOUT_MS = 10_000;
+
 function getSlackToken(): string {
   const token = Deno.env.get("SLACK_BOT_TOKEN");
   if (!token) throw new Error("SLACK_BOT_TOKEN not set");
@@ -7,14 +14,28 @@ function getSlackToken(): string {
 }
 
 async function slackPost(method: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const response = await fetch(`${SLACK_API}/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getSlackToken()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SLACK_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${SLACK_API}/${method}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${getSlackToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as Error).name === "AbortError") {
+      throw new Error(`Slack ${method} timed out after ${SLACK_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const data = await response.json();
   if (!data.ok) {
