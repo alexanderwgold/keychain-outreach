@@ -1,6 +1,5 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { formatDaysAgo, formatRelativeDate, getUrgencyLevel } from "./format"
-import type { UrgencyLevel } from "./types"
 
 describe("formatDaysAgo", () => {
   it("returns 'Today' for 0 days", () => {
@@ -39,13 +38,25 @@ describe("getUrgencyLevel", () => {
 })
 
 describe("formatRelativeDate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date("2026-04-16T12:00:00Z"))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it("formats an ISO date as a short relative string", () => {
-    const today = new Date()
-    const iso = today.toISOString()
+    const iso = new Date("2026-04-16T12:00:00Z").toISOString()
     expect(formatRelativeDate(iso)).toBe("Today")
   })
 
   it("returns empty string for null", () => {
     expect(formatRelativeDate(null)).toBe("")
+  })
+
+  it("returns the raw input for a malformed ISO string", () => {
+    expect(formatRelativeDate("not-a-date")).toBe("not-a-date")
   })
 })

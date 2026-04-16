@@ -20,16 +20,21 @@ export function AttachmentPicker({ attachments, onAttachmentsChange }: Attachmen
   const [showPicker, setShowPicker] = useState(false)
   const [files, setFiles] = useState<AttachmentFile[]>([])
   const [loading, setLoading] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!showPicker) return
     setLoading(true)
+    setListError(null)
     const supabase = createClient()
     supabase.storage
       .from("collateral")
       .list("", { limit: 50, sortBy: { column: "name", order: "asc" } })
       .then(({ data, error }) => {
-        if (!error && data) {
+        if (error) {
+          setListError("Failed to load collateral")
+          setFiles([])
+        } else if (data) {
           setFiles(
             data
               .filter((f) => f.name !== ".emptyFolderPlaceholder")
@@ -81,6 +86,8 @@ export function AttachmentPicker({ attachments, onAttachmentsChange }: Attachmen
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               Loading files...
             </div>
+          ) : listError ? (
+            <p className="py-4 text-xs text-kc-danger">{listError}</p>
           ) : files.length === 0 ? (
             <p className="py-4 text-xs text-kc-text-muted">No files in collateral bucket</p>
           ) : (

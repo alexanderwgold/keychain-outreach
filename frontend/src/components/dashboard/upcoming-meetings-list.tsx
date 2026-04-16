@@ -41,25 +41,36 @@ export function UpcomingMeetingsList({ meetings }: UpcomingMeetingsListProps) {
           <div className="space-y-2">
             {meetings.map((meeting) => {
               const date = new Date(meeting.meeting_date)
+              const isValidDate = !isNaN(date.getTime())
               return (
                 <div
                   key={meeting.id}
                   className="flex items-center gap-3 rounded-lg border border-kc-warm-gray-dark/30 bg-white p-3"
                 >
                   <div className="flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-lg bg-kc-gold/10">
-                    <span className="text-xs font-medium uppercase text-kc-gold-dark">
-                      {date.toLocaleDateString("en-US", { weekday: "short" })}
-                    </span>
-                    <span className="font-mono text-sm font-bold text-kc-charcoal">
-                      {date.getDate()}
-                    </span>
+                    {isValidDate ? (
+                      <>
+                        <span className="text-xs font-medium uppercase text-kc-gold-dark">
+                          {date.toLocaleDateString("en-US", { weekday: "short" })}
+                        </span>
+                        <span className="font-mono text-sm font-bold text-kc-charcoal">
+                          {date.getDate()}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-xs font-medium uppercase text-kc-gold-dark">
+                        TBD
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-kc-charcoal truncate">
                       {meeting.meeting_title}
                     </p>
                     <p className="text-xs text-kc-text-muted">
-                      {date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      {isValidDate
+                        ? date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+                        : meeting.meeting_date || "TBD"}
                     </p>
                   </div>
                   <Badge variant="secondary" className="shrink-0 border-kc-warm-gray-dark bg-kc-warm-gray text-kc-text-muted">

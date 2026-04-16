@@ -33,7 +33,12 @@ export function UserMenu({ name, email }: UserMenuProps) {
   async function handleSignOut() {
     const supabase = createClient()
     Sentry.setUser(null)
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      Sentry.captureException(error)
+    }
+    // Always navigate — signing out locally is idempotent and the redirect
+    // is the user-visible success signal.
     router.push("/")
   }
 

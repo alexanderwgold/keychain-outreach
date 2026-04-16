@@ -23,6 +23,7 @@ export function getUrgencyLevel(
 export function formatRelativeDate(iso: string | null): string {
   if (!iso) return ""
   const date = new Date(iso)
+  if (isNaN(date.getTime())) return iso
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))

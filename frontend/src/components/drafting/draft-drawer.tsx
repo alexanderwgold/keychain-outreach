@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -57,22 +57,35 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
     setHasGenerated(false)
     setDraftCreated(false)
     setToField(contact?.contactEmail ?? "")
-    // Probe whether the rep has a style guide; session JWT satisfies the
-    // `to authenticated` RLS policy on rep_style_guides.
+    // Style-guide presence is probed in an effect below so we don't setState
+    // after unmount if the drawer closes mid-request.
     setHasStyleGuide(null)
-    if (contact?.repEmail) {
-      const supabase = createClient()
-      Promise.resolve(
-        supabase
-          .from("rep_style_guides")
-          .select("rep_email")
-          .eq("rep_email", contact.repEmail)
-          .maybeSingle()
-      )
-        .then(({ data }) => setHasStyleGuide(!!data))
-        .catch(() => setHasStyleGuide(false))
-    }
   }
+
+  // Probe whether the rep has a style guide; session JWT satisfies the
+  // `to authenticated` RLS policy on rep_style_guides. Keyed on open+repEmail
+  // so closing the drawer or switching contacts aborts the pending probe.
+  useEffect(() => {
+    if (!open || !contact?.repEmail) return
+    let aborted = false
+    const supabase = createClient()
+    Promise.resolve(
+      supabase
+        .from("rep_style_guides")
+        .select("rep_email")
+        .eq("rep_email", contact.repEmail)
+        .maybeSingle()
+    )
+      .then(({ data }) => {
+        if (!aborted) setHasStyleGuide(!!data)
+      })
+      .catch(() => {
+        if (!aborted) setHasStyleGuide(false)
+      })
+    return () => {
+      aborted = true
+    }
+  }, [open, contact?.repEmail])
 
   function handleOpenChange(isOpen: boolean) {
     if (isOpen && contact) {
@@ -142,8 +155,12 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
             body: JSON.stringify({
               repEmail: contact.repEmail,
               to: toField,
-              cc: ccField ? ccField.split(",").map((e) => e.trim()) : undefined,
-              bcc: bccField ? bccField.split(",").map((e) => e.trim()) : undefined,
+              cc: ccField
+                ? ccField.split(",").map((e) => e.trim()).filter(Boolean)
+                : undefined,
+              bcc: bccField
+                ? bccField.split(",").map((e) => e.trim()).filter(Boolean)
+                : undefined,
               subject: subjectLine,
               htmlBody: editorContent,
               contactId: contact.contactId,

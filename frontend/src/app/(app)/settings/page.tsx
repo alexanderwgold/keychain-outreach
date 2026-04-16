@@ -1,10 +1,14 @@
+import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { StyleGuideForm } from "@/components/settings/style-guide-form"
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const repEmail = user?.email ?? ""
+  if (!user?.email) {
+    redirect("/")
+  }
+  const repEmail = user.email
 
   // Load existing style guide
   const { data: styleGuide } = await supabase

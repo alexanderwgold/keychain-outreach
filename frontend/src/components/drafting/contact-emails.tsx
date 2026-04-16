@@ -42,8 +42,12 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
     setLoading(true)
     setError(null)
 
+    const controller = new AbortController()
+    const { signal } = controller
+
     const supabase = createClient()
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (signal.aborted) return
       if (!session) {
         setError("Please sign in again")
         setLoaded(true)
@@ -57,10 +61,11 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ repEmail, contactEmail }),
+        signal,
       })
         .then((res) => res?.json())
         .then((data) => {
-          if (!data) return
+          if (signal.aborted || !data) return
           if (data.error === "no_google_token") {
             setError("Connect Google to see email history")
           } else {
@@ -68,12 +73,19 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
           }
           setLoaded(true)
         })
-        .catch(() => {
+        .catch((err) => {
+          if (signal.aborted || err?.name === "AbortError") return
           setError("Failed to load emails")
           setLoaded(true)
         })
-        .finally(() => setLoading(false))
+        .finally(() => {
+          if (!signal.aborted) setLoading(false)
+        })
     })
+
+    return () => {
+      controller.abort()
+    }
   }, [repEmail, contactEmail])
 
   if (!contactEmail) return null
