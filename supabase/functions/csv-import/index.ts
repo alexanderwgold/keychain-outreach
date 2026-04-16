@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { requireAdmin } from "../_shared/auth.ts";
-import { parseCSVRows } from "./parse.ts";
+import { parseCSVRows } from "../_shared/csv-parse.ts";
 import { upsertData } from "./upsert.ts";
 
 const json = (body: unknown, status = 200) =>

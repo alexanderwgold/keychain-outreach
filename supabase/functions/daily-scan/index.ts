@@ -83,10 +83,13 @@ Deno.serve(async (req: Request) => {
           pendingDrafts: draftStatusResult.pendingDrafts,
         });
 
-        await client
+        const { error: lastScanError } = await client
           .from("rep_tokens")
           .update({ last_scan_at: new Date().toISOString() })
           .eq("rep_email", repEmail);
+        if (lastScanError) {
+          console.warn("last_scan_at update failed:", lastScanError.message);
+        }
 
         return {
           repEmail,

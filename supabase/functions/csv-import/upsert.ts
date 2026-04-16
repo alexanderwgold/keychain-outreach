@@ -1,5 +1,5 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-import type { ParsedRow } from "./parse.ts";
+import type { ParsedRow } from "../_shared/csv-parse.ts";
 
 export interface ImportSummary {
   rowsProcessed: number;

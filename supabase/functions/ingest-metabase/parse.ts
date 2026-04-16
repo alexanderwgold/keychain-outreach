@@ -58,9 +58,10 @@ export function parseMetabaseCSV(csvText: string, reportName: string): MetabaseC
     if (totalActivity === 0) continue;
 
     const accountName = sfAccountName || manufacturerName;
+    const displayName = manufacturerName || sfAccountName;
 
     const content =
-      `${manufacturerName} (SF: ${accountName}) — ` +
+      `${displayName} (SF: ${accountName}) — ` +
       `${projects90} projects (90d), ${projects365} projects (1yr). ` +
       `Verified: ${verified90} (90d), ${verified365} (1yr). ` +
       `Category views: ${views90} (90d), ${views365} (1yr).`;

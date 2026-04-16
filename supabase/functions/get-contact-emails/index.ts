@@ -109,7 +109,10 @@ Deno.serve(async (req: Request) => {
       const fromEmail = extractEmail(from);
       const direction: "sent" | "received" = fromEmail === repEmail.toLowerCase() ? "sent" : "received";
 
-      const date = dateStr ? new Date(dateStr).toISOString() : new Date().toISOString();
+      const parsed = dateStr ? new Date(dateStr) : new Date();
+      const date = isNaN(parsed.getTime())
+        ? new Date().toISOString()
+        : parsed.toISOString();
 
       threadMap.set(threadId, {
         subject: subject || "(no subject)",

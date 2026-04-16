@@ -27,6 +27,86 @@ export interface EvalCadenceResult {
   error?: string;
 }
 
+interface OpportunityRow {
+  id: string;
+  account_name: string;
+  stage_name: string;
+  opportunity_contacts?: Array<{
+    contacts: { id: string; first_name: string; last_name: string; email: string | null } | null;
+  }>;
+}
+
+async function evaluateOpp(
+  opp: OpportunityRow,
+  cadenceMap: Map<string, number>,
+  client: SupabaseClient
+): Promise<OverdueContact | null> {
+  if (!ACTIVE_STAGES.has(opp.stage_name)) return null;
+
+  const threshold = cadenceMap.get(opp.stage_name);
+  if (!threshold) return null;
+
+  const { data: lastActivity } = await client
+    .from("activity_log")
+    .select("activity_date")
+    .eq("opportunity_id", opp.id)
+    .order("activity_date", { ascending: false })
+    .limit(1)
+    .single();
+
+  const daysSince = lastActivity
+    ? Math.floor((Date.now() - new Date(lastActivity.activity_date).getTime()) / (1000 * 60 * 60 * 24))
+    : 999;
+
+  if (daysSince < threshold) return null;
+
+  const primaryContact = opp.opportunity_contacts?.[0]?.contacts;
+  if (!primaryContact) return null;
+
+  const isCritical = daysSince >= threshold * 2;
+
+  let autoDrafted = false;
+  if (isCritical) {
+    try {
+      const draftUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-draft`;
+      const draftResponse = await fetch(draftUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contactId: primaryContact.id,
+          opportunityId: opp.id,
+          mode: "standard",
+          context: {
+            trigger: "auto_overdue",
+            daysOverdue: daysSince,
+            cadenceThreshold: threshold,
+          },
+        }),
+      });
+
+      if (draftResponse.ok) {
+        autoDrafted = true;
+      }
+    } catch (err) {
+      console.error(`Auto-draft failed for ${opp.account_name}:`, (err as Error).message);
+    }
+  }
+
+  return {
+    contactName: `${primaryContact.first_name} ${primaryContact.last_name}`,
+    contactId: primaryContact.id,
+    opportunityId: opp.id,
+    accountName: opp.account_name,
+    daysSince,
+    threshold,
+    isCritical,
+    autoDrafted,
+  };
+}
+
 export async function evalCadence(
   repEmail: string,
   client: SupabaseClient
@@ -48,73 +128,13 @@ export async function evalCadence(
       ])
     );
 
+    const results = await Promise.all(
+      (opportunities as OpportunityRow[]).map((opp) => evaluateOpp(opp, cadenceMap, client))
+    );
+
     const overdue: OverdueContact[] = [];
-
-    for (const opp of opportunities) {
-      if (!ACTIVE_STAGES.has(opp.stage_name)) continue;
-
-      const threshold = cadenceMap.get(opp.stage_name);
-      if (!threshold) continue;
-
-      const { data: lastActivity } = await client
-        .from("activity_log")
-        .select("activity_date")
-        .eq("opportunity_id", opp.id)
-        .order("activity_date", { ascending: false })
-        .limit(1)
-        .single();
-
-      const daysSince = lastActivity
-        ? Math.floor((Date.now() - new Date(lastActivity.activity_date).getTime()) / (1000 * 60 * 60 * 24))
-        : 999;
-
-      if (daysSince < threshold) continue;
-
-      const primaryContact = opp.opportunity_contacts?.[0]?.contacts;
-      if (!primaryContact) continue;
-
-      const isCritical = daysSince >= threshold * 2;
-
-      let autoDrafted = false;
-      if (isCritical) {
-        try {
-          const draftUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-draft`;
-          const draftResponse = await fetch(draftUrl, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              contactId: primaryContact.id,
-              opportunityId: opp.id,
-              mode: "standard",
-              context: {
-                trigger: "auto_overdue",
-                daysOverdue: daysSince,
-                cadenceThreshold: threshold,
-              },
-            }),
-          });
-
-          if (draftResponse.ok) {
-            autoDrafted = true;
-          }
-        } catch (err) {
-          console.error(`Auto-draft failed for ${opp.account_name}:`, (err as Error).message);
-        }
-      }
-
-      overdue.push({
-        contactName: `${primaryContact.first_name} ${primaryContact.last_name}`,
-        contactId: primaryContact.id,
-        opportunityId: opp.id,
-        accountName: opp.account_name,
-        daysSince,
-        threshold,
-        isCritical,
-        autoDrafted,
-      });
+    for (const r of results) {
+      if (r) overdue.push(r);
     }
 
     overdue.sort((a, b) => b.daysSince - a.daysSince);

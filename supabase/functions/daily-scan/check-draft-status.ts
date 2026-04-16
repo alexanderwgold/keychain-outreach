@@ -28,30 +28,39 @@ export async function checkDraftStatus(
     }
 
     const data = await response.json();
-    const drafts = data.drafts ?? [];
-    const pendingDrafts: PendingDraft[] = [];
+    const drafts: Array<{ id: string }> = data.drafts ?? [];
 
-    for (const draft of drafts) {
-      const draftResponse = await googleApiFetch(
-        `${GMAIL_DRAFTS_URL}/${draft.id}`,
-        accessToken
-      );
+    const fetched = await Promise.all(
+      drafts.map(async (draft): Promise<PendingDraft | null> => {
+        try {
+          const draftResponse = await googleApiFetch(
+            `${GMAIL_DRAFTS_URL}/${draft.id}`,
+            accessToken
+          );
 
-      if (!draftResponse.ok) continue;
+          if (!draftResponse.ok) return null;
 
-      const draftData = await draftResponse.json();
-      const headers = draftData.message?.payload?.headers ?? [];
-      const subject = headers.find((h: { name: string }) => h.name === "Subject")?.value ?? "";
-      const to = headers.find((h: { name: string }) => h.name === "To")?.value ?? "";
-      const date = headers.find((h: { name: string }) => h.name === "Date")?.value ?? "";
+          const draftData = await draftResponse.json();
+          const headers = draftData.message?.payload?.headers ?? [];
+          const subject = headers.find((h: { name: string }) => h.name === "Subject")?.value ?? "";
+          const to = headers.find((h: { name: string }) => h.name === "To")?.value ?? "";
+          const date = headers.find((h: { name: string }) => h.name === "Date")?.value ?? "";
 
-      pendingDrafts.push({
-        contactName: to,
-        subject,
-        createdAt: date,
-        draftId: draft.id,
-      });
-    }
+          return {
+            contactName: to,
+            subject,
+            createdAt: date,
+            draftId: draft.id,
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    const pendingDrafts: PendingDraft[] = fetched.filter(
+      (d): d is PendingDraft => d !== null
+    );
 
     return { pendingDrafts };
   } catch (e) {

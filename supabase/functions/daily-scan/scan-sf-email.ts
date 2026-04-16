@@ -1,5 +1,6 @@
 import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import { googleApiFetch } from "../_shared/google-auth.ts";
+import { parseCSVRows } from "../_shared/csv-parse.ts";
 
 export interface SfUpdate {
   accountName: string;
@@ -14,6 +15,16 @@ export interface ScanSfEmailResult {
 }
 
 const GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages";
+
+interface ExistingOpp {
+  id: string;
+  stage_name: string | null;
+  amount: number | null;
+  opp_owner: string | null;
+  next_step: string | null;
+  next_steps_c: string | null;
+  account_name: string;
+}
 
 export async function scanSfEmail(
   repEmail: string,
@@ -74,25 +85,45 @@ export async function scanSfEmail(
     const csvBase64 = attData.data.replace(/-/g, "+").replace(/_/g, "/");
     const csvText = atob(csvBase64);
 
-    const { parseCSVRows } = await import("../../csv-import/parse.ts");
     const rows = parseCSVRows(csvText);
 
-    const sfUpdates: SfUpdate[] = [];
+    if (rows.length === 0) {
+      return { sfUpdates: [] };
+    }
+
     const DIFF_FIELDS = ["stage_name", "amount", "opp_owner", "next_step", "next_steps_c"];
 
-    for (const row of rows) {
-      const { data: existing } = await client
-        .from("opportunities")
-        .select("id, stage_name, amount, opp_owner, next_step, next_steps_c, account_name")
-        .eq("sf_opportunity_id", row.opportunity.sf_opportunity_id)
-        .single();
+    // ── Batch fetch: collect all referenced sf_opportunity_ids and load in one query ──
+    const sfOppIds = Array.from(
+      new Set(rows.map((r) => r.opportunity.sf_opportunity_id).filter(Boolean))
+    );
 
+    const { data: existingOpps, error: fetchError } = await client
+      .from("opportunities")
+      .select("id, stage_name, amount, opp_owner, next_step, next_steps_c, account_name, sf_opportunity_id")
+      .in("sf_opportunity_id", sfOppIds);
+
+    if (fetchError) {
+      return { sfUpdates: [], error: `Failed to load opportunities: ${fetchError.message}` };
+    }
+
+    const existingBySfId = new Map<string, ExistingOpp & { sf_opportunity_id: string }>(
+      (existingOpps ?? []).map((o: ExistingOpp & { sf_opportunity_id: string }) => [o.sf_opportunity_id, o])
+    );
+
+    const sfUpdates: SfUpdate[] = [];
+    const oppUpdates: Array<{ id: string } & Record<string, unknown>> = [];
+    const activityInserts: Array<Record<string, unknown>> = [];
+    const now = new Date().toISOString();
+
+    for (const row of rows) {
+      const existing = existingBySfId.get(row.opportunity.sf_opportunity_id);
       if (!existing) continue;
 
       const updates: Record<string, unknown> = {};
 
       for (const field of DIFF_FIELDS) {
-        const oldVal = existing[field as keyof typeof existing];
+        const oldVal = existing[field as keyof ExistingOpp];
         const newVal = row.opportunity[field as keyof typeof row.opportunity];
         if (newVal !== null && newVal !== undefined && String(newVal) !== String(oldVal ?? "")) {
           updates[field] = newVal;
@@ -106,20 +137,40 @@ export async function scanSfEmail(
       }
 
       if (Object.keys(updates).length > 0) {
-        updates["last_sf_sync_at"] = new Date().toISOString();
-        await client
-          .from("opportunities")
-          .update(updates)
-          .eq("id", existing.id);
+        oppUpdates.push({
+          id: existing.id,
+          ...updates,
+          last_sf_sync_at: now,
+        });
 
-        await client.from("activity_log").insert({
+        activityInserts.push({
           opportunity_id: existing.id,
           rep_email: repEmail,
           activity_type: "manual_log",
-          activity_date: new Date().toISOString(),
-          subject: `SF update: ${Object.keys(updates).filter((k) => k !== "last_sf_sync_at").join(", ")}`,
+          activity_date: now,
+          subject: `SF update: ${Object.keys(updates).join(", ")}`,
           source: "sf_report",
         });
+      }
+    }
+
+    // ── Batch writes ──
+    if (oppUpdates.length > 0) {
+      // Upsert on primary key `id`. Existing rows retain all non-specified columns.
+      const { error: updateError } = await client
+        .from("opportunities")
+        .upsert(oppUpdates, { onConflict: "id" });
+      if (updateError) {
+        return { sfUpdates: [], error: `Opportunities update failed: ${updateError.message}` };
+      }
+    }
+
+    if (activityInserts.length > 0) {
+      const { error: insertError } = await client
+        .from("activity_log")
+        .insert(activityInserts);
+      if (insertError) {
+        return { sfUpdates, error: `activity_log insert failed: ${insertError.message}` };
       }
     }
 
