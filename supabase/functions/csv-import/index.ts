@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createAdminClient } from "../_shared/supabase-client.ts";
+import { requireAdmin } from "../_shared/auth.ts";
 import { parseCSVRows } from "./parse.ts";
 import { upsertData } from "./upsert.ts";
 
@@ -14,22 +15,8 @@ serve(async (req: Request) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
-  // Auth is handled by Supabase gateway (verify_jwt: true).
-  // The service-role key is a valid JWT that passes gateway verification.
-  // We check the role claim to ensure only service_role can call this.
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader.startsWith("Bearer ")) {
-    return json({ error: "Unauthorized" }, 401);
-  }
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (payload.role !== "service_role") {
-      return json({ error: "Forbidden: service_role required" }, 403);
-    }
-  } catch {
-    return json({ error: "Invalid token" }, 401);
-  }
+  const forbid = await requireAdmin(req);
+  if (forbid) return forbid;
 
   let csvText: string;
   try {

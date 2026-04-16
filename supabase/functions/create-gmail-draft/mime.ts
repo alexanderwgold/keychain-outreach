@@ -18,6 +18,22 @@ export interface MimeMessageOptions {
 const BOUNDARY = "keychain_mime_boundary_" + Date.now().toString(36);
 
 /**
+ * Strips CR/LF/NUL from a header value. Defense against header-injection
+ * attacks via user-controlled fields (to/cc/bcc/subject/filename).
+ */
+function sanitizeHeader(value: string): string {
+  return value.replace(/[\r\n\0]+/g, " ").trim();
+}
+
+/**
+ * Escapes backslash and quote for use inside a quoted MIME parameter
+ * (filename="..."). Returns the sanitized inner string without surrounding quotes.
+ */
+function quoteMimeParam(value: string): string {
+  return sanitizeHeader(value).replace(/[\\"]/g, "\\$&");
+}
+
+/**
  * Builds an RFC 2822 MIME message string.
  * If attachments are present, creates a multipart/mixed message.
  * Otherwise, creates a simple text/html message.
@@ -27,10 +43,10 @@ export function buildMimeMessage(options: MimeMessageOptions): string {
   const lines: string[] = [];
 
   // Headers
-  lines.push(`To: ${to}`);
-  if (cc?.length) lines.push(`Cc: ${cc.join(", ")}`);
-  if (bcc?.length) lines.push(`Bcc: ${bcc.join(", ")}`);
-  lines.push(`Subject: ${subject}`);
+  lines.push(`To: ${sanitizeHeader(to)}`);
+  if (cc?.length) lines.push(`Cc: ${cc.map(sanitizeHeader).join(", ")}`);
+  if (bcc?.length) lines.push(`Bcc: ${bcc.map(sanitizeHeader).join(", ")}`);
+  lines.push(`Subject: ${sanitizeHeader(subject)}`);
   lines.push("MIME-Version: 1.0");
 
   if (attachments && attachments.length > 0) {
@@ -47,9 +63,9 @@ export function buildMimeMessage(options: MimeMessageOptions): string {
     // Attachment parts
     for (const attachment of attachments) {
       lines.push(`--${BOUNDARY}`);
-      lines.push(`Content-Type: ${attachment.mimeType}; name="${attachment.filename}"`);
+      lines.push(`Content-Type: ${sanitizeHeader(attachment.mimeType)}; name="${quoteMimeParam(attachment.filename)}"`);
       lines.push("Content-Transfer-Encoding: base64");
-      lines.push(`Content-Disposition: attachment; filename="${attachment.filename}"`);
+      lines.push(`Content-Disposition: attachment; filename="${quoteMimeParam(attachment.filename)}"`);
       lines.push("");
       lines.push(attachment.base64Content);
     }

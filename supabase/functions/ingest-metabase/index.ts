@@ -1,5 +1,6 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/auth.ts";
 import { upsertKnowledge, type KnowledgeChunk } from "../_shared/knowledge.ts";
 import { parseMetabaseCSV } from "./parse.ts";
 
@@ -7,20 +8,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return corsPreflightResponse();
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  // Auth: require service_role JWT
-  const authHeader = req.headers.get("Authorization") ?? "";
-  if (!authHeader.startsWith("Bearer ")) {
-    return jsonResponse({ error: "Unauthorized" }, 401);
-  }
-  try {
-    const token = authHeader.replace("Bearer ", "");
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    if (payload.role !== "service_role") {
-      return jsonResponse({ error: "Forbidden: service_role required" }, 403);
-    }
-  } catch {
-    return jsonResponse({ error: "Invalid token" }, 401);
-  }
+  const forbid = await requireAdmin(req);
+  if (forbid) return forbid;
 
   // Parse multipart form data
   let csvText: string;

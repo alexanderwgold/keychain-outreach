@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Upload, Database, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import * as Sentry from "@sentry/nextjs"
+import { createClient } from "@/lib/supabase/client"
 
 interface IngestResult {
   rowsProcessed: number
@@ -31,6 +32,13 @@ export function MetabaseUploadForm() {
 
     try {
       await Sentry.startSpan({ name: "metabase.ingest", op: "http.client" }, async () => {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setError("Please sign in again")
+          return
+        }
+
         const formData = new FormData()
         formData.append("file", file)
         formData.append("report_name", reportName || file.name)
@@ -41,7 +49,7 @@ export function MetabaseUploadForm() {
             method: "POST",
             body: formData,
             headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
           }
         )

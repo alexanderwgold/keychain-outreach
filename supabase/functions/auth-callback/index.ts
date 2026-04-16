@@ -19,7 +19,7 @@ Deno.serve(async (req: Request) => {
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const _state = url.searchParams.get("state"); // TODO: validate for CSRF in v2
+  const _state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
   // Handle OAuth errors (user denied, etc.)
@@ -32,10 +32,18 @@ Deno.serve(async (req: Request) => {
     return redirectTo(`${LOGIN_URL}?error=missing_code`);
   }
 
-  // TODO: validate state parameter against stored state (CSRF prevention)
-  // For v1, state validation is deferred — the Supabase Auth flow handles CSRF
-  // via its own state management. This function handles the Google OAuth for
-  // Gmail/Calendar scopes separately from Supabase Auth.
+  // SECURITY TODO: implement state/nonce validation to prevent OAuth CSRF.
+  // The proper design: (1) new `auth-start` Edge Function that requires an
+  // authenticated session, generates a random nonce, persists it server-side
+  // (auth_nonces table: {nonce, rep_email, created_at}), and returns the
+  // Google OAuth URL with state=<nonce>. (2) This callback verifies state
+  // matches a non-expired nonce before accepting the code exchange, and
+  // confirms the nonce's rep_email matches the userinfo email returned from
+  // Google. Until implemented, an attacker can trigger an OAuth flow and
+  // complete it in a victim's browser (login-CSRF). Mitigating factor: the
+  // rep_mapping active-email check at line ~90 prevents binding tokens to
+  // arbitrary accounts — the attacker must already control a valid rep's
+  // Keychain account to exploit.
 
   try {
     const client = createAdminClient();

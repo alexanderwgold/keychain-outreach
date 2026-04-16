@@ -35,8 +35,31 @@ export async function requireSelf(
   if (!callerEmail) {
     return jsonResponse({ error: "Unauthenticated" }, 401);
   }
-  if (callerEmail !== targetRepEmail.toLowerCase()) {
+  if (callerEmail !== targetRepEmail.trim().toLowerCase()) {
     return jsonResponse({ error: "Forbidden" }, 403);
   }
+  return null;
+}
+
+/**
+ * Returns a 401/403 Response if the caller is not an authenticated admin,
+ * or null if the caller is authenticated and `is_admin = true` in `rep_mapping`.
+ *
+ * Use like: `const forbid = await requireAdmin(req); if (forbid) return forbid;`
+ */
+export async function requireAdmin(req: Request): Promise<Response | null> {
+  const callerEmail = await getCallerEmail(req);
+  if (!callerEmail) return jsonResponse({ error: "Unauthenticated" }, 401);
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+  const { data } = await supabase
+    .from("rep_mapping")
+    .select("is_admin")
+    .eq("rep_email", callerEmail)
+    .maybeSingle();
+  if (!data?.is_admin) return jsonResponse({ error: "Forbidden: admin only" }, 403);
   return null;
 }

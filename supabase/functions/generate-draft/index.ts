@@ -1,5 +1,6 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
+import { requireSelf } from "../_shared/auth.ts";
 import { searchKnowledge, upsertKnowledge, type KnowledgeChunk } from "../_shared/knowledge.ts";
 import { buildSystemPrompt, buildUserPrompt, buildStyleBlock, type DraftContext, type StyleGuide } from "./prompt.ts";
 
@@ -49,6 +50,10 @@ Deno.serve(async (req: Request) => {
       .eq("id", opportunityId)
       .single();
     if (oppError || !opp) return jsonResponse({ error: "Opportunity not found" }, 404);
+
+    // Authorize: caller must be the rep who owns this opportunity
+    const forbid = await requireSelf(req, opp.rep_email);
+    if (forbid) return forbid;
 
     // Style guide gate: require rep to have a style guide before generating
     const { data: styleGuide } = await client

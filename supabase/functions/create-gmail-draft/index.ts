@@ -1,6 +1,7 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { refreshGoogleToken, googleApiFetch } from "../_shared/google-auth.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
+import { requireSelf } from "../_shared/auth.ts";
 import { buildMimeMessage, base64UrlEncode, type MimeAttachment } from "./mime.ts";
 
 const GMAIL_DRAFTS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/drafts";
@@ -32,6 +33,9 @@ Deno.serve(async (req: Request) => {
   if (!repEmail || !to || !subject || !htmlBody) {
     return jsonResponse({ error: "repEmail, to, subject, and htmlBody are required" }, 400);
   }
+
+  const forbid = await requireSelf(req, repEmail);
+  if (forbid) return forbid;
 
   try {
     const client = createAdminClient();
