@@ -12,9 +12,12 @@ function truncateIp(raw: string | null): string | null {
   // x-forwarded-for may contain multiple IPs; take the first
   const ip = raw.split(",")[0].trim()
   if (ip.includes(":")) {
-    // IPv6 → /48 (first 3 hextets)
-    const parts = ip.split(":")
-    return parts.slice(0, 3).join(":") + "::/48"
+    // IPv6 → /48. Handle "::" compressed form by taking up to 3 hextets
+    // before any "::" compression point.
+    const compressIdx = ip.indexOf("::")
+    const head = compressIdx >= 0 ? ip.slice(0, compressIdx) : ip
+    const hextets = head.split(":").filter(Boolean).slice(0, 3)
+    return hextets.length > 0 ? hextets.join(":") + "::/48" : "::/48"
   }
   // IPv4 → /24
   const octets = ip.split(".")
@@ -45,7 +48,7 @@ export async function GET(
   if (!link || !link.active || !item?.active) {
     return new NextResponse(
       "<!doctype html><title>Content unavailable</title><body style=\"font-family:system-ui;margin:3rem auto;max-width:420px;padding:0 1rem\"><h1>This content is no longer available</h1><p>The person who shared this link may have removed or updated it.</p></body>",
-      { status: 410, headers: { "content-type": "text/html" } },
+      { status: 410, headers: { "content-type": "text/html", "cache-control": "no-store" } },
     )
   }
 
@@ -58,5 +61,7 @@ export async function GET(
     referrer: request.headers.get("referer"),
   })
 
-  return NextResponse.redirect(item.url, 302)
+  const redirect = NextResponse.redirect(item.url, 302)
+  redirect.headers.set("cache-control", "no-store")
+  return redirect
 }
