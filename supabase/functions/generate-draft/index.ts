@@ -1,6 +1,6 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
-import { requireSelf } from "../_shared/auth.ts";
 import { searchKnowledge, upsertKnowledge, type KnowledgeChunk } from "../_shared/knowledge.ts";
 import { buildSystemPrompt, buildUserPrompt, buildStyleBlock, type DraftContext, type StyleGuide } from "./prompt.ts";
 
@@ -39,21 +39,33 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const client = createAdminClient();
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) return jsonResponse({ error: "ANTHROPIC_API_KEY not configured" }, 500);
 
-    // Step 1: Load contact + opportunity context
-    const { data: opp, error: oppError } = await client
+    // Step 1: Load contact + opportunity context via the caller's JWT so RLS
+    // (migration 009) scopes visibility to the owning rep or an admin. If the
+    // caller isn't allowed to see this opp, the row won't appear — we return
+    // 404 either way so unauthorized callers can't use this endpoint as an
+    // existence oracle for opportunity IDs.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return jsonResponse({ error: "Unauthenticated" }, 401);
+    }
+    const authedClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: opp, error: oppError } = await authedClient
       .from("opportunities")
       .select("*, opportunity_contacts(contacts(*))")
       .eq("id", opportunityId)
       .single();
     if (oppError || !opp) return jsonResponse({ error: "Opportunity not found" }, 404);
 
-    // Authorize: caller must be the rep who owns this opportunity
-    const forbid = await requireSelf(req, opp.rep_email);
-    if (forbid) return forbid;
+    // Subsequent reads (style guide, cadence_rules, activity_log, knowledge_base)
+    // use the admin client so we don't need RLS policies on every table yet.
+    const client = createAdminClient();
 
     // Style guide gate: require rep to have a style guide before generating
     const { data: styleGuide } = await client

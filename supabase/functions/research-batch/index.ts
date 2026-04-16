@@ -1,4 +1,5 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
+import { requireServiceRole } from "../_shared/auth.ts";
 import { upsertKnowledge, purgeExpiredKnowledge, type KnowledgeChunk } from "../_shared/knowledge.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -14,6 +15,9 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const forbid = requireServiceRole(req);
+  if (forbid) return forbid;
 
   const startTime = Date.now();
   const client = createAdminClient();
