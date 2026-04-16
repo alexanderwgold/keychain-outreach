@@ -101,12 +101,17 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
 
     try {
       await Sentry.startSpan({ name: "draft.generate", op: "ai.run" }, async () => {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error("Please sign in again")
+        }
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-draft`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
@@ -144,12 +149,17 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
 
     try {
       await Sentry.startSpan({ name: "draft.createGmail", op: "http.client" }, async () => {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          throw new Error("Please sign in again")
+        }
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-gmail-draft`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
