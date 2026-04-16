@@ -47,7 +47,7 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
       <PipelineFilters />
 
       <Suspense fallback={<PipelineLoading />}>
-        <PipelineTable data={data} basePath={basePath} />
+        <PipelineTable data={data} basePath={basePath} repEmail={repEmail} />
       </Suspense>
     </div>
   )

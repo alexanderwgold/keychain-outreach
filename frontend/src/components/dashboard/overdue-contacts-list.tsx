@@ -11,9 +11,10 @@ import type { PipelineContact } from "@/lib/types"
 
 interface OverdueContactsListProps {
   contacts: PipelineContact[]
+  repEmail: string
 }
 
-export function OverdueContactsList({ contacts }: OverdueContactsListProps) {
+export function OverdueContactsList({ contacts, repEmail }: OverdueContactsListProps) {
   return (
     <Card className="border-kc-warm-gray-dark/50">
       <CardHeader className="pb-3">
@@ -77,6 +78,8 @@ export function OverdueContactsList({ contacts }: OverdueContactsListProps) {
                   accountName={item.opportunity.account_name}
                   stageName={item.opportunity.stage_name}
                   opportunityId={item.opportunity.id}
+                  contactId={item.contact.id}
+                  repEmail={repEmail}
                   size="sm"
                   variant="outline"
                   className="shrink-0 gap-1.5 border-kc-gold/50 text-kc-charcoal hover:bg-kc-gold/10"
