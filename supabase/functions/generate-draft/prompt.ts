@@ -100,3 +100,41 @@ export function buildUserPrompt(ctx: DraftContext): string {
 
   return lines.join("\n");
 }
+
+export interface StyleGuide {
+  tone_and_voice: string;
+  opening_style: string;
+  closing_and_signoff: string;
+  things_to_avoid: string;
+  example_phrases: string;
+}
+
+/**
+ * Builds the style block for a rep's personal writing style.
+ * Injected as a second system message with cache_control.
+ * Returns null if any section is empty (guide not completed).
+ */
+export function buildStyleBlock(guide: StyleGuide): string | null {
+  if (!guide.tone_and_voice && !guide.opening_style && !guide.closing_and_signoff) {
+    return null;
+  }
+
+  return `Match this rep's writing style exactly. Here is their style profile:
+
+## Tone & Voice
+${guide.tone_and_voice}
+
+## Opening Style
+${guide.opening_style}
+
+## Closing & Sign-off
+${guide.closing_and_signoff}
+
+## Things to Avoid
+${guide.things_to_avoid}
+
+## Example Phrases They Use
+${guide.example_phrases}
+
+Apply these patterns naturally. The email should sound like this specific person wrote it, not like a generic AI draft.`;
+}

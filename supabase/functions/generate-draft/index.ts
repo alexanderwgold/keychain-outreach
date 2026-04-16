@@ -1,7 +1,7 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
 import { searchKnowledge, upsertKnowledge, type KnowledgeChunk } from "../_shared/knowledge.ts";
-import { buildSystemPrompt, buildUserPrompt, type DraftContext } from "./prompt.ts";
+import { buildSystemPrompt, buildUserPrompt, buildStyleBlock, type DraftContext, type StyleGuide } from "./prompt.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-opus-4-6";
@@ -49,6 +49,17 @@ Deno.serve(async (req: Request) => {
       .eq("id", opportunityId)
       .single();
     if (oppError || !opp) return jsonResponse({ error: "Opportunity not found" }, 404);
+
+    // Style guide gate: require rep to have a style guide before generating
+    const { data: styleGuide } = await client
+      .from("rep_style_guides")
+      .select("tone_and_voice, opening_style, closing_and_signoff, things_to_avoid, example_phrases")
+      .eq("rep_email", opp.rep_email)
+      .single();
+
+    if (!styleGuide) {
+      return jsonResponse({ error: "style_guide_required", code: "NO_STYLE_GUIDE" }, 422);
+    }
 
     // Find the specific contact
     const allContacts = (opp.opportunity_contacts ?? [])
@@ -191,11 +202,20 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1024,
-        system: [{
-          type: "text",
-          text: systemPrompt,
-          cache_control: { type: "ephemeral" },
-        }],
+        system: [
+          {
+            type: "text",
+            text: systemPrompt,
+            cache_control: { type: "ephemeral" },
+          },
+          ...(buildStyleBlock(styleGuide as StyleGuide)
+            ? [{
+                type: "text" as const,
+                text: buildStyleBlock(styleGuide as StyleGuide)!,
+                cache_control: { type: "ephemeral" as const },
+              }]
+            : []),
+        ],
         messages: [{
           role: "user",
           content: userPrompt,
