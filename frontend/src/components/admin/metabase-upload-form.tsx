@@ -81,8 +81,9 @@ export function MetabaseUploadForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-kc-warm-gray-dark p-8 transition-colors hover:border-kc-gold/50 hover:bg-kc-gold-subtle/20"
+          <button
+            type="button"
+            className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-kc-warm-gray-dark p-8 transition-colors hover:border-kc-gold/50 hover:bg-kc-gold-subtle/20 focus:outline-none focus:ring-2 focus:ring-kc-gold"
             onClick={() => inputRef.current?.click()}
           >
             <Database className="mb-3 h-8 w-8 text-kc-text-muted" />
@@ -113,7 +114,7 @@ export function MetabaseUploadForm() {
                 if (selected) setFile(selected)
               }}
             />
-          </div>
+          </button>
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-kc-text-muted">

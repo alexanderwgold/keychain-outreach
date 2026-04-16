@@ -30,6 +30,26 @@ export function formatRelativeDate(iso: string | null): string {
   return formatDaysAgo(diffDays)
 }
 
+/**
+ * Short relative date format used for compact inline timestamps:
+ * "today" / "yesterday" / "Xd ago" / "Xw ago" / "MMM d".
+ * Lower-case and terse — distinct from formatRelativeDate which
+ * returns "Today" / "N days ago" sentence case.
+ */
+export function formatRelativeDateShort(dateStr: string): string {
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return dateStr
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return "today"
+  if (diffDays === 1) return "yesterday"
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
 /** Format a number with commas: 1234567 → "1,234,567" */
 export function formatNumber(n: number): string {
   return n.toLocaleString("en-US")

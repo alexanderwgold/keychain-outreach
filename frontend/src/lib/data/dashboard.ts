@@ -44,8 +44,23 @@ export async function getOverdueContacts(repEmail: string): Promise<PipelineCont
             .select("*")
             .in("opportunity_id", oppIds)
             .order("activity_date", { ascending: false })
-        : Promise.resolve({ data: [] as ActivityLog[] }),
+        : Promise.resolve({ data: [] as ActivityLog[], error: null }),
     ])
+
+    // Surface per-query errors to Sentry instead of silently falling through
+    // to empty maps — which previously caused us to drop every overdue
+    // contact whenever either query failed.
+    if (cadenceResult.error) {
+      Sentry.captureException(
+        new Error(`cadence_rules query failed: ${cadenceResult.error.message}`),
+      )
+    }
+    if (activityResult.error) {
+      Sentry.captureException(
+        new Error(`activity_log query failed: ${activityResult.error.message}`),
+      )
+    }
+
     const cadenceMap = new Map((cadenceResult.data ?? []).map(r => [r.stage_name, r]))
     const latestActivityByOpp = new Map<string, ActivityLog>()
     for (const activity of activityResult.data ?? []) {

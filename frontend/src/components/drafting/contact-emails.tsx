@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { ChevronDown, ChevronRight, ArrowUpRight, ArrowDownLeft, ExternalLink, Loader2, Mail } from "lucide-react"
 import * as Sentry from "@sentry/nextjs"
 import { createClient } from "@/lib/supabase/client"
+import { formatRelativeDateShort } from "@/lib/format"
 
 interface EmailThread {
   subject: string
@@ -16,19 +17,6 @@ interface EmailThread {
 interface ContactEmailsProps {
   repEmail: string
   contactEmail: string | null
-}
-
-function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) return "today"
-  if (diffDays === 1) return "yesterday"
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
@@ -144,7 +132,7 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
                 <p className="truncate text-xs text-kc-text-muted">{thread.snippet}</p>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-xs text-kc-text-muted">{formatRelativeDate(thread.date)}</span>
+                <span className="text-xs text-kc-text-muted">{formatRelativeDateShort(thread.date)}</span>
                 <a
                   href={thread.gmailUrl}
                   target="_blank"
