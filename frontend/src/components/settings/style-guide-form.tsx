@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Sparkles, Save, RefreshCw, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import * as Sentry from "@sentry/nextjs"
+import { createClient } from "@/lib/supabase/client"
 
 interface StyleGuideData {
   toneAndVoice: string
@@ -54,12 +55,18 @@ export function StyleGuideForm({ repEmail, initialData }: StyleGuideFormProps) {
 
     try {
       await Sentry.startSpan({ name: "style.analyze", op: "ai.run" }, async () => {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setError("Please sign in again")
+          return
+        }
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/analyze-style`,
           {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ repEmail }),
@@ -103,12 +110,19 @@ export function StyleGuideForm({ repEmail, initialData }: StyleGuideFormProps) {
     setSaveSuccess(false)
 
     try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError("Please sign in again")
+        setSaving(false)
+        return
+      }
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/save-style-guide`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

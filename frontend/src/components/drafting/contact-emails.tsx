@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ChevronDown, ChevronRight, ArrowUpRight, ArrowDownLeft, ExternalLink, Loader2, Mail } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface EmailThread {
   subject: string
@@ -41,28 +42,38 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
     setLoading(true)
     setError(null)
 
-    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-contact-emails`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ repEmail, contactEmail }),
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setError("Please sign in again")
+        setLoaded(true)
+        setLoading(false)
+        return
+      }
+      return fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-contact-emails`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ repEmail, contactEmail }),
+      })
+        .then((res) => res?.json())
+        .then((data) => {
+          if (!data) return
+          if (data.error === "no_google_token") {
+            setError("Connect Google to see email history")
+          } else {
+            setThreads(data.threads ?? [])
+          }
+          setLoaded(true)
+        })
+        .catch(() => {
+          setError("Failed to load emails")
+          setLoaded(true)
+        })
+        .finally(() => setLoading(false))
     })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error === "no_google_token") {
-          setError("Connect Google to see email history")
-        } else {
-          setThreads(data.threads ?? [])
-        }
-        setLoaded(true)
-      })
-      .catch(() => {
-        setError("Failed to load emails")
-        setLoaded(true)
-      })
-      .finally(() => setLoading(false))
   }, [repEmail, contactEmail])
 
   if (!contactEmail) return null

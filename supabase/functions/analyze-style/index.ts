@@ -1,6 +1,7 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { refreshGoogleToken, googleApiFetch } from "../_shared/google-auth.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
+import { requireSelf } from "../_shared/auth.ts";
 
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-6";
@@ -101,6 +102,9 @@ Deno.serve(async (req: Request) => {
 
   const { repEmail } = body;
   if (!repEmail) return jsonResponse({ error: "repEmail required" }, 400);
+
+  const forbid = await requireSelf(req, repEmail);
+  if (forbid) return forbid;
 
   try {
     const client = createAdminClient();

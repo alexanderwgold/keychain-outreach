@@ -1,5 +1,6 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
+import { requireSelf } from "../_shared/auth.ts";
 
 interface SaveRequest {
   repEmail: string;
@@ -23,6 +24,9 @@ Deno.serve(async (req: Request) => {
 
   const { repEmail, toneAndVoice, openingStyle, closingAndSignoff, thingsToAvoid, examplePhrases } = body;
   if (!repEmail) return jsonResponse({ error: "repEmail required" }, 400);
+
+  const forbid = await requireSelf(req, repEmail);
+  if (forbid) return forbid;
 
   try {
     const client = createAdminClient();
