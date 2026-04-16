@@ -42,7 +42,7 @@ export async function refreshGoogleToken(
       .single();
 
     if (directError || !directRow) {
-      throw new Error(`Vault decryption failed for ${repEmail}: ${vaultError.message}`);
+      throw new Error(`Vault decryption failed for ${repEmail}: ${directError?.message ?? vaultError.message}`);
     }
     refreshToken = (directRow as { decrypted_secret: string }).decrypted_secret;
   } else {
@@ -81,9 +81,9 @@ export async function googleApiFetch(
   return fetch(url, {
     ...options,
     headers: {
+      ...(options.headers ?? {}),
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      ...(options.headers ?? {}),
     },
   });
 }
