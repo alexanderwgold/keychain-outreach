@@ -12,6 +12,8 @@ interface DraftTriggerProps {
   accountName: string
   stageName: string
   opportunityId: string
+  contactId: string
+  repEmail: string
   size?: "sm" | "default"
   variant?: "outline" | "ghost"
   className?: string
@@ -24,6 +26,8 @@ export function DraftTrigger({
   accountName,
   stageName,
   opportunityId,
+  contactId,
+  repEmail,
   size = "sm",
   variant = "outline",
   className,
@@ -39,7 +43,7 @@ export function DraftTrigger({
       <DraftDrawer
         open={open}
         onOpenChange={setOpen}
-        contact={{ contactName, contactTitle, contactEmail, accountName, stageName, opportunityId }}
+        contact={{ contactName, contactTitle, contactEmail, accountName, stageName, opportunityId, contactId, repEmail }}
       />
     </>
   )

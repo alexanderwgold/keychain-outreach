@@ -21,9 +21,10 @@ import type { PipelineResult } from "@/lib/data/pipeline"
 interface PipelineTableProps {
   data: PipelineResult
   basePath: string
+  repEmail: string
 }
 
-export function PipelineTable({ data, basePath }: PipelineTableProps) {
+export function PipelineTable({ data, basePath, repEmail }: PipelineTableProps) {
   const { rows, totalCount, page, pageSize } = data
   const totalPages = Math.ceil(totalCount / pageSize)
   const startRow = (page - 1) * pageSize + 1
@@ -95,6 +96,8 @@ export function PipelineTable({ data, basePath }: PipelineTableProps) {
                     accountName={row.accountName}
                     stageName={row.stageName}
                     opportunityId={row.opportunityId}
+                    contactId={row.contactId}
+                    repEmail={repEmail}
                     size="sm"
                     variant="ghost"
                     className="gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"

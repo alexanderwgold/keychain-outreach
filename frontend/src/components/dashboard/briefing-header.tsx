@@ -1,17 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { AlertTriangle, Mail, Calendar, Activity } from "lucide-react"
 import type { BriefingStats } from "@/lib/types"
+import { Greeting } from "./greeting"
 
 interface BriefingHeaderProps {
   repName: string
   stats: BriefingStats
-}
-
-function getGreeting(): string {
-  const hour = new Date().getHours()
-  if (hour < 12) return "Good morning"
-  if (hour < 17) return "Good afternoon"
-  return "Good evening"
 }
 
 const STAT_CARDS = [
@@ -56,7 +50,7 @@ export function BriefingHeader({ repName, stats }: BriefingHeaderProps) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-kc-charcoal">
-          {getGreeting()}, {firstName}
+          <Greeting />, {firstName}
         </h1>
         <p className="mt-1 text-kc-text-muted">
           Here&apos;s your daily briefing

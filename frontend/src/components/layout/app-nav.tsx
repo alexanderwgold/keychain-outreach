@@ -6,12 +6,13 @@ import { cn } from "@/lib/utils"
 import { KeychainLogo } from "./keychain-logo"
 import { UserMenu } from "./user-menu"
 import { useUser } from "@/hooks/use-user"
-import { LayoutDashboard, GitBranch } from "lucide-react"
+import { LayoutDashboard, GitBranch, Settings } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Briefing", icon: LayoutDashboard },
   { href: "/pipeline", label: "Pipeline", icon: GitBranch },
+  { href: "/settings", label: "Settings", icon: Settings },
 ] as const
 
 export function AppNav() {

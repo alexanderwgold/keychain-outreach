@@ -29,6 +29,14 @@ export interface PipelineResult {
   pageSize: number
 }
 
+// PostgREST's `.or(ilike)` takes a raw filter expression — interpolating user
+// search terms verbatim lets commas, parens, and the SQL LIKE wildcards
+// (`%`, `_`) change the query shape. Escape everything that's special in
+// either PostgREST's filter grammar or LIKE itself.
+function escapeIlikeForOr(raw: string): string {
+  return raw.replace(/[\\,()%_*]/g, "\\$&")
+}
+
 export async function getPipelineData(
   repEmail: string,
   options: {
@@ -44,6 +52,10 @@ export async function getPipelineData(
     const pageSize = options.pageSize ?? 25
     const offset = (page - 1) * pageSize
 
+    // `opportunity_contacts!inner(...)` forces an inner join so the exact-count
+    // only reflects opportunities that actually have a linked contact — the
+    // same set we end up rendering. Without it, the count included opps that
+    // later got filtered out in-memory, breaking pagination math.
     let query = supabase
       .from("opportunities")
       .select(`
@@ -53,9 +65,9 @@ export async function getPipelineData(
         stage_name,
         amount,
         close_date,
-        opportunity_contacts(
+        opportunity_contacts!inner(
           primary,
-          contacts(id, first_name, last_name, email, title)
+          contacts!inner(id, first_name, last_name, email, title)
         )
       `, { count: "exact" })
       .eq("rep_email", repEmail)
@@ -66,7 +78,8 @@ export async function getPipelineData(
     }
 
     if (options.search) {
-      query = query.or(`account_name.ilike.%${options.search}%,opportunity_name.ilike.%${options.search}%`)
+      const safe = escapeIlikeForOr(options.search)
+      query = query.or(`account_name.ilike.%${safe}%,opportunity_name.ilike.%${safe}%`)
     }
 
     query = query
@@ -82,9 +95,27 @@ export async function getPipelineData(
 
     if (!opportunities) return { rows: [], totalCount: 0, page, pageSize }
 
-    const { data: cadenceRules } = await supabase.from("cadence_rules").select("*")
-    const cadenceMap = new Map((cadenceRules ?? []).map(r => [r.stage_name, r]))
+    const oppIds = opportunities.map(o => o.id)
 
+    const [cadenceResult, activityResult] = await Promise.all([
+      supabase.from("cadence_rules").select("*"),
+      oppIds.length > 0
+        ? supabase
+            .from("activity_log")
+            .select("opportunity_id, activity_date")
+            .in("opportunity_id", oppIds)
+            .order("activity_date", { ascending: false })
+        : Promise.resolve({ data: [] as { opportunity_id: string; activity_date: string }[] }),
+    ])
+    const cadenceMap = new Map((cadenceResult.data ?? []).map(r => [r.stage_name, r]))
+    const latestActivityByOpp = new Map<string, string>()
+    for (const a of activityResult.data ?? []) {
+      if (!latestActivityByOpp.has(a.opportunity_id)) {
+        latestActivityByOpp.set(a.opportunity_id, a.activity_date)
+      }
+    }
+
+    const now = Date.now()
     const rows: PipelineRow[] = []
 
     for (const opp of opportunities) {
@@ -98,6 +129,10 @@ export async function getPipelineData(
 
       const cadence = cadenceMap.get(opp.stage_name)
       const isActive = ACTIVE_STAGES.has(opp.stage_name)
+      const lastActivityDate = latestActivityByOpp.get(opp.id)
+      const daysSinceLastTouch = lastActivityDate
+        ? Math.floor((now - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null
 
       rows.push({
         opportunityId: opp.id,
@@ -112,7 +147,7 @@ export async function getPipelineData(
         contactId: contact.id,
         isPrimary: primaryOc?.primary ?? false,
         isActiveStage: isActive,
-        daysSinceLastTouch: null,
+        daysSinceLastTouch,
         cadenceThreshold: cadence?.days_between_touches ?? null,
         suggestedAction: cadence?.suggested_action ?? null,
       })

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
 import * as Sentry from "@sentry/nextjs"
+import { createClient } from "@/lib/supabase/client"
 
 interface ImportResult {
   rowsProcessed: number
@@ -31,6 +32,13 @@ export function CsvUploadForm() {
 
     try {
       await Sentry.startSpan({ name: "csv.upload", op: "http.client" }, async () => {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setError("Please sign in again")
+          return
+        }
+
         const formData = new FormData()
         formData.append("file", file)
 
@@ -40,7 +48,7 @@ export function CsvUploadForm() {
             method: "POST",
             body: formData,
             headers: {
-              Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+              Authorization: `Bearer ${session.access_token}`,
             },
           }
         )
@@ -73,8 +81,9 @@ export function CsvUploadForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div
-            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-kc-warm-gray-dark p-8 transition-colors hover:border-kc-gold/50 hover:bg-kc-gold-subtle/20"
+          <button
+            type="button"
+            className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-kc-warm-gray-dark p-8 transition-colors hover:border-kc-gold/50 hover:bg-kc-gold-subtle/20 focus:outline-none focus:ring-2 focus:ring-kc-gold"
             onClick={() => inputRef.current?.click()}
           >
             <FileText className="mb-3 h-8 w-8 text-kc-text-muted" />
@@ -105,7 +114,7 @@ export function CsvUploadForm() {
                 if (selected) setFile(selected)
               }}
             />
-          </div>
+          </button>
 
           <Button
             onClick={handleUpload}

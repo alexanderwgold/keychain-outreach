@@ -1,8 +1,12 @@
 .worktrees/
 
+# Vercel (only the frontend/ .vercel link should exist)
+.vercel/
+
 # Installed skills (third-party, per-machine)
 .agents/skills/
 .claude/skills/
+skills-lock.json
 .claude/agent-memory/
 .claude/agents/
 .claude/worktrees/
