@@ -29,6 +29,14 @@ export interface PipelineResult {
   pageSize: number
 }
 
+// PostgREST's `.or(ilike)` takes a raw filter expression — interpolating user
+// search terms verbatim lets commas, parens, and the SQL LIKE wildcards
+// (`%`, `_`) change the query shape. Escape everything that's special in
+// either PostgREST's filter grammar or LIKE itself.
+function escapeIlikeForOr(raw: string): string {
+  return raw.replace(/[\\,()%_*]/g, "\\$&")
+}
+
 export async function getPipelineData(
   repEmail: string,
   options: {
@@ -44,6 +52,10 @@ export async function getPipelineData(
     const pageSize = options.pageSize ?? 25
     const offset = (page - 1) * pageSize
 
+    // `opportunity_contacts!inner(...)` forces an inner join so the exact-count
+    // only reflects opportunities that actually have a linked contact — the
+    // same set we end up rendering. Without it, the count included opps that
+    // later got filtered out in-memory, breaking pagination math.
     let query = supabase
       .from("opportunities")
       .select(`
@@ -53,9 +65,9 @@ export async function getPipelineData(
         stage_name,
         amount,
         close_date,
-        opportunity_contacts(
+        opportunity_contacts!inner(
           primary,
-          contacts(id, first_name, last_name, email, title)
+          contacts!inner(id, first_name, last_name, email, title)
         )
       `, { count: "exact" })
       .eq("rep_email", repEmail)
@@ -66,7 +78,8 @@ export async function getPipelineData(
     }
 
     if (options.search) {
-      query = query.or(`account_name.ilike.%${options.search}%,opportunity_name.ilike.%${options.search}%`)
+      const safe = escapeIlikeForOr(options.search)
+      query = query.or(`account_name.ilike.%${safe}%,opportunity_name.ilike.%${safe}%`)
     }
 
     query = query

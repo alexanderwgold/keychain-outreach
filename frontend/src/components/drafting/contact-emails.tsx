@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { ChevronDown, ChevronRight, ArrowUpRight, ArrowDownLeft, ExternalLink, Loader2, Mail } from "lucide-react"
+import * as Sentry from "@sentry/nextjs"
 import { createClient } from "@/lib/supabase/client"
 
 interface EmailThread {
@@ -68,6 +69,12 @@ export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
           if (signal.aborted || !data) return
           if (data.error === "no_google_token") {
             setError("Connect Google to see email history")
+          } else if (data.error) {
+            // Any other backend error (Gmail search failed, token refresh
+            // failed, etc.) used to be silently swallowed. Surface a generic
+            // message to the rep and log the raw error for debugging.
+            Sentry.captureMessage(`contact-emails error: ${data.error}`, "warning")
+            setError("Couldn't load emails")
           } else {
             setThreads(data.threads ?? [])
           }
