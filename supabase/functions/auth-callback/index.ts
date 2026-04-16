@@ -19,7 +19,7 @@ Deno.serve(async (req: Request) => {
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
+  const _state = url.searchParams.get("state"); // TODO: validate for CSRF in v2
   const error = url.searchParams.get("error");
 
   // Handle OAuth errors (user denied, etc.)
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
 
     const userInfo = await userInfoResponse.json();
     const repEmail = userInfo.email as string;
-    const repName = userInfo.name as string ?? repEmail;
+    const repName = (userInfo.name as string | undefined) ?? repEmail;
 
     // Step 3: Verify email exists in rep_mapping
     const { data: repMapping, error: repError } = await client
