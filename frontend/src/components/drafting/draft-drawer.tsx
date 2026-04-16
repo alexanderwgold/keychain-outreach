@@ -1,14 +1,18 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Sparkles, Search, Send, Trash2, Loader2 } from "lucide-react"
 import { StageBadge } from "@/components/pipeline/stage-badge"
 import { EmailEditor } from "./email-editor"
 import { AttachmentPicker, type AttachmentFile } from "./attachment-picker"
+import { ContactEmails } from "./contact-emails"
+import { createClient } from "@/lib/supabase/client"
 import * as Sentry from "@sentry/nextjs"
 
 interface ContactContext {
@@ -41,6 +45,7 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
   const [attachments, setAttachments] = useState<AttachmentFile[]>([])
   const [hasGenerated, setHasGenerated] = useState(false)
   const [draftCreated, setDraftCreated] = useState(false)
+  const [hasStyleGuide, setHasStyleGuide] = useState<boolean | null>(null)
 
   function resetState() {
     setEditorContent("")
@@ -52,6 +57,18 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
     setHasGenerated(false)
     setDraftCreated(false)
     setToField(contact?.contactEmail ?? "")
+    // Probe whether the rep has a style guide; session JWT satisfies the
+    // `to authenticated` RLS policy on rep_style_guides.
+    setHasStyleGuide(null)
+    if (contact?.repEmail) {
+      const supabase = createClient()
+      supabase
+        .from("rep_style_guides")
+        .select("rep_email")
+        .eq("rep_email", contact.repEmail)
+        .maybeSingle()
+        .then(({ data }) => setHasStyleGuide(!!data))
+    }
   }
 
   function handleOpenChange(isOpen: boolean) {
@@ -176,8 +193,34 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
               </div>
             </div>
 
+            {/* Contact email history */}
+            <ContactEmails
+              repEmail={contact.repEmail}
+              contactEmail={contact.contactEmail}
+            />
+
+            {/* Style guide gate */}
+            {hasStyleGuide === false && !generating && (
+              <Card className="border-kc-gold/30 bg-kc-gold-subtle/20">
+                <CardContent className="p-4 text-center">
+                  <p className="text-sm font-medium text-kc-charcoal">
+                    Set up your writing style first
+                  </p>
+                  <p className="mt-1 text-xs text-kc-text-muted">
+                    Before generating drafts, Claude needs to learn your writing style. This takes about 30 seconds.
+                  </p>
+                  <Link href="/settings">
+                    <Button className="mt-3 gap-2 bg-kc-gold text-kc-charcoal hover:bg-kc-gold-dark">
+                      <Sparkles className="h-4 w-4" />
+                      Build My Style Guide
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Generate buttons — shown before first generation */}
-            {!hasGenerated && !generating && (
+            {!hasGenerated && !generating && hasStyleGuide && (
               <div className="flex gap-2">
                 <Button
                   onClick={() => handleGenerate("standard")}

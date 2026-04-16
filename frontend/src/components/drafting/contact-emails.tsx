@@ -1,0 +1,134 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { ChevronDown, ChevronRight, ArrowUpRight, ArrowDownLeft, ExternalLink, Loader2, Mail } from "lucide-react"
+
+interface EmailThread {
+  subject: string
+  snippet: string
+  date: string
+  direction: "sent" | "received"
+  gmailUrl: string
+}
+
+interface ContactEmailsProps {
+  repEmail: string
+  contactEmail: string | null
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return "today"
+  if (diffDays === 1) return "yesterday"
+  if (diffDays < 7) return `${diffDays}d ago`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+export function ContactEmails({ repEmail, contactEmail }: ContactEmailsProps) {
+  const [expanded, setExpanded] = useState(false)
+  const [threads, setThreads] = useState<EmailThread[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!contactEmail || !repEmail) return
+    setLoading(true)
+    setError(null)
+
+    fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-contact-emails`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ repEmail, contactEmail }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error === "no_google_token") {
+          setError("Connect Google to see email history")
+        } else {
+          setThreads(data.threads ?? [])
+        }
+        setLoaded(true)
+      })
+      .catch(() => {
+        setError("Failed to load emails")
+        setLoaded(true)
+      })
+      .finally(() => setLoading(false))
+  }, [repEmail, contactEmail])
+
+  if (!contactEmail) return null
+
+  return (
+    <div className="rounded-lg border border-kc-warm-gray-dark/30 bg-white">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-kc-text-muted hover:text-kc-charcoal"
+      >
+        {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        <Mail className="h-3.5 w-3.5" />
+        Recent Emails
+        {loaded && !error && (
+          <span className="text-kc-text-muted">({threads.length})</span>
+        )}
+        {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-kc-warm-gray-dark/20 px-3 pb-2">
+          {loading && !loaded && (
+            <div className="flex items-center gap-2 py-3 text-xs text-kc-text-muted">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading emails...
+            </div>
+          )}
+
+          {error && (
+            <p className="py-3 text-xs text-kc-text-muted">{error}</p>
+          )}
+
+          {loaded && !error && threads.length === 0 && (
+            <p className="py-3 text-xs text-kc-text-muted">No recent emails with this contact</p>
+          )}
+
+          {threads.map((thread, i) => (
+            <div
+              key={i}
+              className="flex items-start gap-2 border-b border-kc-warm-gray-dark/10 py-2 last:border-0"
+            >
+              {thread.direction === "sent" ? (
+                <ArrowUpRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-kc-gold-dark" />
+              ) : (
+                <ArrowDownLeft className="mt-0.5 h-3.5 w-3.5 shrink-0 text-kc-text-muted" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-kc-charcoal">{thread.subject}</p>
+                <p className="truncate text-xs text-kc-text-muted">{thread.snippet}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-xs text-kc-text-muted">{formatRelativeDate(thread.date)}</span>
+                <a
+                  href={thread.gmailUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-kc-text-muted hover:text-kc-charcoal"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
