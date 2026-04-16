@@ -77,6 +77,6 @@ export const config = {
      * - API routes (handled separately)
      * - /monitoring (Sentry tunnel route)
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/|monitoring).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/|monitoring|c/).*)",
   ],
 }
