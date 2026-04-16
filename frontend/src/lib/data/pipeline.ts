@@ -82,9 +82,27 @@ export async function getPipelineData(
 
     if (!opportunities) return { rows: [], totalCount: 0, page, pageSize }
 
-    const { data: cadenceRules } = await supabase.from("cadence_rules").select("*")
-    const cadenceMap = new Map((cadenceRules ?? []).map(r => [r.stage_name, r]))
+    const oppIds = opportunities.map(o => o.id)
 
+    const [cadenceResult, activityResult] = await Promise.all([
+      supabase.from("cadence_rules").select("*"),
+      oppIds.length > 0
+        ? supabase
+            .from("activity_log")
+            .select("opportunity_id, activity_date")
+            .in("opportunity_id", oppIds)
+            .order("activity_date", { ascending: false })
+        : Promise.resolve({ data: [] as { opportunity_id: string; activity_date: string }[] }),
+    ])
+    const cadenceMap = new Map((cadenceResult.data ?? []).map(r => [r.stage_name, r]))
+    const latestActivityByOpp = new Map<string, string>()
+    for (const a of activityResult.data ?? []) {
+      if (!latestActivityByOpp.has(a.opportunity_id)) {
+        latestActivityByOpp.set(a.opportunity_id, a.activity_date)
+      }
+    }
+
+    const now = Date.now()
     const rows: PipelineRow[] = []
 
     for (const opp of opportunities) {
@@ -98,6 +116,10 @@ export async function getPipelineData(
 
       const cadence = cadenceMap.get(opp.stage_name)
       const isActive = ACTIVE_STAGES.has(opp.stage_name)
+      const lastActivityDate = latestActivityByOpp.get(opp.id)
+      const daysSinceLastTouch = lastActivityDate
+        ? Math.floor((now - new Date(lastActivityDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null
 
       rows.push({
         opportunityId: opp.id,
@@ -112,7 +134,7 @@ export async function getPipelineData(
         contactId: contact.id,
         isPrimary: primaryOc?.primary ?? false,
         isActiveStage: isActive,
-        daysSinceLastTouch: null,
+        daysSinceLastTouch,
         cadenceThreshold: cadence?.days_between_touches ?? null,
         suggestedAction: cadence?.suggested_action ?? null,
       })

@@ -33,9 +33,26 @@ export async function getOverdueContacts(repEmail: string): Promise<PipelineCont
 
     if (!opportunities) return []
 
-    // Get cadence rules for lookup
-    const { data: cadenceRules } = await supabase.from("cadence_rules").select("*")
-    const cadenceMap = new Map((cadenceRules ?? []).map(r => [r.stage_name, r]))
+    const oppIds = opportunities.map(o => o.id)
+
+    // One round-trip for cadence rules and latest activity per opp
+    const [cadenceResult, activityResult] = await Promise.all([
+      supabase.from("cadence_rules").select("*"),
+      oppIds.length > 0
+        ? supabase
+            .from("activity_log")
+            .select("*")
+            .in("opportunity_id", oppIds)
+            .order("activity_date", { ascending: false })
+        : Promise.resolve({ data: [] as ActivityLog[] }),
+    ])
+    const cadenceMap = new Map((cadenceResult.data ?? []).map(r => [r.stage_name, r]))
+    const latestActivityByOpp = new Map<string, ActivityLog>()
+    for (const activity of activityResult.data ?? []) {
+      if (!latestActivityByOpp.has(activity.opportunity_id)) {
+        latestActivityByOpp.set(activity.opportunity_id, activity)
+      }
+    }
 
     const now = new Date()
     const results: PipelineContact[] = []
@@ -44,14 +61,7 @@ export async function getOverdueContacts(repEmail: string): Promise<PipelineCont
       const cadence = cadenceMap.get(opp.stage_name)
       if (!cadence) continue
 
-      // Get last activity for this opportunity
-      const { data: lastActivity } = await supabase
-        .from("activity_log")
-        .select("*")
-        .eq("opportunity_id", opp.id)
-        .order("activity_date", { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const lastActivity = latestActivityByOpp.get(opp.id) ?? null
 
       const daysSinceLastTouch = lastActivity
         ? Math.floor((now.getTime() - new Date(lastActivity.activity_date).getTime()) / (1000 * 60 * 60 * 24))
