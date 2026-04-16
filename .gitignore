@@ -3,6 +3,7 @@
 # Installed skills (third-party, per-machine)
 .agents/skills/
 .claude/skills/
+skills-lock.json
 .claude/agent-memory/
 .claude/agents/
 .claude/worktrees/
