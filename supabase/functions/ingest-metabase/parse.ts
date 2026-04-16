@@ -16,9 +16,17 @@ export interface MetabaseChunk {
   };
 }
 
+/**
+ * Strict integer parser. `parseInt("12abc")` silently returns 12, which would
+ * inflate Metabase counts on malformed values; require the entire cleaned
+ * string to be digits (optionally negative) and fit in a safe integer.
+ */
 function parseNum(raw: string): number {
-  const n = parseInt(raw.replace(/,/g, ""), 10);
-  return isNaN(n) ? 0 : n;
+  const cleaned = raw.replace(/,/g, "").trim();
+  if (cleaned === "") return 0;
+  if (!/^-?\d+$/.test(cleaned)) return 0;
+  const n = Number(cleaned);
+  return Number.isSafeInteger(n) ? n : 0;
 }
 
 /**

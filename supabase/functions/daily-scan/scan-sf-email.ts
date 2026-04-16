@@ -112,38 +112,49 @@ export async function scanSfEmail(
     );
 
     const sfUpdates: SfUpdate[] = [];
-    const oppUpdates: Array<{ id: string } & Record<string, unknown>> = [];
-    const activityInserts: Array<Record<string, unknown>> = [];
+    // Dedupe by opp id: parseCSVRows returns one row per contact, so a
+    // multi-contact opportunity would otherwise produce duplicate upsert
+    // payloads and duplicate activity rows.
+    const oppUpdatesById = new Map<string, { id: string } & Record<string, unknown>>();
+    const activityByOppId = new Map<string, Record<string, unknown>>();
     const now = new Date().toISOString();
 
     for (const row of rows) {
       const existing = existingBySfId.get(row.opportunity.sf_opportunity_id);
       if (!existing) continue;
+      // Skip rows we've already processed for this opportunity; all rows in
+      // a multi-contact opp carry identical opportunity columns.
+      if (oppUpdatesById.has(existing.id)) continue;
 
       const updates: Record<string, unknown> = {};
 
       for (const field of DIFF_FIELDS) {
         const oldVal = existing[field as keyof ExistingOpp];
         const newVal = row.opportunity[field as keyof typeof row.opportunity];
-        if (newVal !== null && newVal !== undefined && String(newVal) !== String(oldVal ?? "")) {
-          updates[field] = newVal;
+        // Include null/empty updates so clearing a field in Salesforce
+        // propagates to our DB instead of leaving stale data. Normalize both
+        // sides via String() with the same null-as-"" coercion.
+        const oldNorm = oldVal == null ? "" : String(oldVal);
+        const newNorm = newVal == null ? "" : String(newVal);
+        if (newNorm !== oldNorm) {
+          updates[field] = newVal ?? null;
           sfUpdates.push({
             accountName: existing.account_name,
             field,
             oldValue: oldVal != null ? String(oldVal) : null,
-            newValue: String(newVal),
+            newValue: newVal != null ? String(newVal) : null,
           });
         }
       }
 
       if (Object.keys(updates).length > 0) {
-        oppUpdates.push({
+        oppUpdatesById.set(existing.id, {
           id: existing.id,
           ...updates,
           last_sf_sync_at: now,
         });
 
-        activityInserts.push({
+        activityByOppId.set(existing.id, {
           opportunity_id: existing.id,
           rep_email: repEmail,
           activity_type: "manual_log",
@@ -153,6 +164,9 @@ export async function scanSfEmail(
         });
       }
     }
+
+    const oppUpdates = Array.from(oppUpdatesById.values());
+    const activityInserts = Array.from(activityByOppId.values());
 
     // ── Batch writes ──
     if (oppUpdates.length > 0) {

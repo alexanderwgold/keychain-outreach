@@ -83,23 +83,40 @@ Deno.serve(async (req: Request) => {
           pendingDrafts: draftStatusResult.pendingDrafts,
         });
 
-        const { error: lastScanError } = await client
-          .from("rep_tokens")
-          .update({ last_scan_at: new Date().toISOString() })
-          .eq("rep_email", repEmail);
-        if (lastScanError) {
-          console.warn("last_scan_at update failed:", lastScanError.message);
+        // Workers report failures via a returned `error` field rather than
+        // throwing. If any of the four reports an error, don't advance
+        // last_scan_at — otherwise we'd silently skip retries on the next run
+        // by treating the failed window as already scanned.
+        const workerErrors = [
+          sfResult.error,
+          gmailResult.error,
+          calendarResult.error,
+          cadenceResult.error,
+        ].filter(Boolean) as string[];
+        const allWorkersOk = workerErrors.length === 0;
+
+        if (allWorkersOk) {
+          const { error: lastScanError } = await client
+            .from("rep_tokens")
+            .update({ last_scan_at: new Date().toISOString() })
+            .eq("rep_email", repEmail);
+          if (lastScanError) {
+            console.warn("last_scan_at update failed:", lastScanError.message);
+          }
+        } else {
+          console.warn(`Scan errors for ${repEmail}:`, workerErrors.join("; "));
         }
 
         return {
           repEmail,
-          success: true,
+          success: allWorkersOk,
           sfResult,
           gmailResult,
           calendarResult,
           cadenceResult,
           draftStatusResult,
           digestSent: digestResult.sent,
+          error: allWorkersOk ? undefined : workerErrors.join("; "),
         };
       } catch (e) {
         console.error(`Scan failed for ${repEmail}:`, (e as Error).message);

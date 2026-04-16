@@ -30,8 +30,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const { repEmail, to, cc, bcc, subject, htmlBody, contactId, opportunityId, attachments } = body;
-  if (!repEmail || !to || !subject || !htmlBody) {
-    return jsonResponse({ error: "repEmail, to, subject, and htmlBody are required" }, 400);
+  if (!repEmail || !to || !subject || !htmlBody || !contactId || !opportunityId) {
+    return jsonResponse(
+      { error: "repEmail, to, subject, htmlBody, contactId, and opportunityId are required" },
+      400
+    );
   }
 
   const forbid = await requireSelf(req, repEmail);
@@ -45,6 +48,7 @@ Deno.serve(async (req: Request) => {
 
     // Step 2: Download attachments from Supabase Storage
     const mimeAttachments: MimeAttachment[] = [];
+    const failedAttachments: string[] = [];
     if (attachments?.length) {
       for (const att of attachments) {
         const { data, error } = await client.storage
@@ -53,6 +57,7 @@ Deno.serve(async (req: Request) => {
 
         if (error) {
           console.error(`Failed to download ${att.storageKey}:`, error.message);
+          failedAttachments.push(att.filename);
           continue;
         }
 
@@ -126,7 +131,11 @@ Deno.serve(async (req: Request) => {
       source: "manual",
     });
 
-    return jsonResponse({ success: true, draftId });
+    return jsonResponse({
+      success: true,
+      draftId,
+      ...(failedAttachments.length > 0 ? { failedAttachments } : {}),
+    });
   } catch (e) {
     console.error("create-gmail-draft error:", (e as Error).message);
     return jsonResponse({ error: (e as Error).message }, 500);
