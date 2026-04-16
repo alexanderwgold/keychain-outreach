@@ -62,12 +62,15 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
     setHasStyleGuide(null)
     if (contact?.repEmail) {
       const supabase = createClient()
-      supabase
-        .from("rep_style_guides")
-        .select("rep_email")
-        .eq("rep_email", contact.repEmail)
-        .maybeSingle()
+      Promise.resolve(
+        supabase
+          .from("rep_style_guides")
+          .select("rep_email")
+          .eq("rep_email", contact.repEmail)
+          .maybeSingle()
+      )
         .then(({ data }) => setHasStyleGuide(!!data))
+        .catch(() => setHasStyleGuide(false))
     }
   }
 
