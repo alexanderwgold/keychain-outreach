@@ -1,8 +1,10 @@
 /* ==========================================================================
  * Database types — mirrors Supabase schema from docs/database.md
- * Generate fresh types via: mcp__supabase__generate_typescript_types
- * These hand-written types are used until the generated types are available.
+ * Generated types live in: frontend/src/lib/supabase/database.types.ts
+ * Regenerate via: mcp__supabase__generate_typescript_types
  * ========================================================================== */
+
+import { Tables } from "./supabase/database.types"
 
 export type ActivityType =
   | "email_sent"
@@ -143,3 +145,19 @@ export interface BriefingStats {
 
 /** Urgency level for color-coding */
 export type UrgencyLevel = "healthy" | "at-threshold" | "overdue"
+
+/* ==========================================================================
+ * Arsenal types — generated from Supabase schema
+ * ========================================================================== */
+
+export type ArsenalItem = Tables<"arsenal_items">
+export type CollateralLink = Tables<"collateral_links">
+export type CollateralEvent = Tables<"collateral_events">
+
+export type ArsenalItemWithStats = ArsenalItem & {
+  openCount: number
+  lastOpenedAt: string | null
+  linkSlug: string | null
+}
+
+export type ArsenalShelf = "reference" | "collateral" | "report"
