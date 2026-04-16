@@ -37,9 +37,14 @@ function isAutoReply(subject: string): boolean {
   return AUTO_REPLY_KEYWORDS.some((k) => lower.includes(k));
 }
 
-function isInternalOnly(to: string): boolean {
-  const recipients = to.split(",").map((e) => e.trim().toLowerCase());
-  return recipients.every((r) => r.includes(INTERNAL_DOMAIN));
+function isInternalOnly(recipients: string): boolean {
+  const list = recipients
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+  // Empty recipients list: we don't know, so don't filter out.
+  if (list.length === 0) return false;
+  return list.every((r) => r.includes(INTERNAL_DOMAIN));
 }
 
 function extractPlainText(payload: Record<string, unknown>): string {
@@ -166,13 +171,16 @@ Deno.serve(async (req: Request) => {
         const headers = msgData.payload?.headers ?? [];
         const subject = headers.find((h: { name: string }) => h.name === "Subject")?.value ?? "";
         const to = headers.find((h: { name: string }) => h.name === "To")?.value ?? "";
+        const cc = headers.find((h: { name: string }) => h.name === "Cc")?.value ?? "";
+        const bcc = headers.find((h: { name: string }) => h.name === "Bcc")?.value ?? "";
+        const allRecipients = [to, cc, bcc].filter((v) => v.length > 0).join(",");
 
         // Filter: skip calendar responses
         if (isCalendarResponse(subject)) continue;
         // Filter: skip auto-replies
         if (isAutoReply(subject)) continue;
-        // Filter: skip internal-only emails
-        if (isInternalOnly(to)) continue;
+        // Filter: skip internal-only emails (check To+Cc+Bcc combined)
+        if (isInternalOnly(allRecipients)) continue;
 
         // Extract body text
         const body = extractPlainText(msgData.payload ?? {});
@@ -223,7 +231,9 @@ Based on these ${sampled.length} emails, generate a writing style profile with e
 
 Each section should be 2-4 sentences of specific, actionable observations. Be concrete — cite actual patterns you observed.
 
-Return as JSON with keys: toneAndVoice, openingStyle, closingAndSignoff, thingsToAvoid, examplePhrases. Each value is a string.`;
+Return as JSON with keys: toneAndVoice, openingStyle, closingAndSignoff, thingsToAvoid, examplePhrases. Each value is a string.
+
+Respond with ONLY the JSON object and nothing else — no prose before or after.`;
 
     // Step 7: Call Claude
     const response = await fetch(ANTHROPIC_API_URL, {
@@ -235,7 +245,7 @@ Return as JSON with keys: toneAndVoice, openingStyle, closingAndSignoff, thingsT
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: [{
           type: "text",
           text: systemPrompt,
@@ -257,11 +267,15 @@ Return as JSON with keys: toneAndVoice, openingStyle, closingAndSignoff, thingsT
       return jsonResponse({ error: "No text in Claude response" }, 502);
     }
 
-    // Step 8: Parse JSON
+    // Step 8: Parse JSON (tolerate code fences and surrounding prose)
     let styleResult: StyleResult;
     try {
-      const jsonStr = textContent.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      styleResult = JSON.parse(jsonStr);
+      const stripped = textContent.text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const match = stripped.match(/\{[\s\S]*\}/);
+      if (!match) {
+        return jsonResponse({ error: "Failed to parse style analysis result" }, 502);
+      }
+      styleResult = JSON.parse(match[0]);
     } catch {
       return jsonResponse({ error: "Failed to parse style analysis result" }, 502);
     }
