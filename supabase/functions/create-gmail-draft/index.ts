@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
       opportunity_id: opportunityId,
       contact_id: contactId,
       rep_email: repEmail,
-      activity_type: "email_sent",
+      activity_type: "draft_created",
       activity_date: new Date().toISOString(),
       subject,
       notes: JSON.stringify({

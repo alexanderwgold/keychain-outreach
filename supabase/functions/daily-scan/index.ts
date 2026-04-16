@@ -1,5 +1,6 @@
 import { createAdminClient } from "../_shared/supabase-client.ts";
 import { refreshGoogleToken } from "../_shared/google-auth.ts";
+import { requireServiceRole } from "../_shared/auth.ts";
 import { scanSfEmail, type ScanSfEmailResult } from "./scan-sf-email.ts";
 import { scanGmail, type ScanGmailResult } from "./scan-gmail.ts";
 import { scanCalendar, type ScanCalendarResult } from "./scan-calendar.ts";
@@ -28,6 +29,9 @@ Deno.serve(async (req: Request) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const forbid = requireServiceRole(req);
+  if (forbid) return forbid;
 
   const startTime = Date.now();
   const client = createAdminClient();
@@ -73,6 +77,34 @@ Deno.serve(async (req: Request) => {
 
         const cadenceResult = await evalCadence(repEmail, client);
 
+        // Workers report failures via a returned `error` field rather than
+        // throwing. If any of the four reports an error, don't send the
+        // digest (would be partial/misleading) and don't advance
+        // last_scan_at (we'd silently skip retries on the next run by
+        // treating the failed window as already scanned).
+        const workerErrors = [
+          sfResult.error,
+          gmailResult.error,
+          calendarResult.error,
+          cadenceResult.error,
+        ].filter(Boolean) as string[];
+        const allWorkersOk = workerErrors.length === 0;
+
+        if (!allWorkersOk) {
+          console.warn(`Scan errors for ${repEmail}:`, workerErrors.join("; "));
+          return {
+            repEmail,
+            success: false,
+            sfResult,
+            gmailResult,
+            calendarResult,
+            cadenceResult,
+            draftStatusResult,
+            digestSent: false,
+            error: workerErrors.join("; "),
+          };
+        }
+
         const digestResult = await composeAndSendDigest({
           repEmail,
           sfUpdates: sfResult.sfUpdates,
@@ -83,40 +115,23 @@ Deno.serve(async (req: Request) => {
           pendingDrafts: draftStatusResult.pendingDrafts,
         });
 
-        // Workers report failures via a returned `error` field rather than
-        // throwing. If any of the four reports an error, don't advance
-        // last_scan_at — otherwise we'd silently skip retries on the next run
-        // by treating the failed window as already scanned.
-        const workerErrors = [
-          sfResult.error,
-          gmailResult.error,
-          calendarResult.error,
-          cadenceResult.error,
-        ].filter(Boolean) as string[];
-        const allWorkersOk = workerErrors.length === 0;
-
-        if (allWorkersOk) {
-          const { error: lastScanError } = await client
-            .from("rep_tokens")
-            .update({ last_scan_at: new Date().toISOString() })
-            .eq("rep_email", repEmail);
-          if (lastScanError) {
-            console.warn("last_scan_at update failed:", lastScanError.message);
-          }
-        } else {
-          console.warn(`Scan errors for ${repEmail}:`, workerErrors.join("; "));
+        const { error: lastScanError } = await client
+          .from("rep_tokens")
+          .update({ last_scan_at: new Date().toISOString() })
+          .eq("rep_email", repEmail);
+        if (lastScanError) {
+          console.warn("last_scan_at update failed:", lastScanError.message);
         }
 
         return {
           repEmail,
-          success: allWorkersOk,
+          success: true,
           sfResult,
           gmailResult,
           calendarResult,
           cadenceResult,
           draftStatusResult,
           digestSent: digestResult.sent,
-          error: allWorkersOk ? undefined : workerErrors.join("; "),
         };
       } catch (e) {
         console.error(`Scan failed for ${repEmail}:`, (e as Error).message);
