@@ -34,13 +34,14 @@ interface DraftDrawerProps {
   // skips generate/style-guide UI and uses the prefilled body directly.
   prefillBody?: string
   initialTo?: string
+  initialSubject?: string
   extraAttachments?: Array<
-    | { storageKey: string; filename?: string }
+    | { storageKey: string; filename: string }
     | { driveFileId: string; filename?: string }
   >
 }
 
-export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialTo, extraAttachments }: DraftDrawerProps) {
+export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialTo, initialSubject, extraAttachments }: DraftDrawerProps) {
   const arsenalMode = !contact && !!prefillBody
   const [generating, setGenerating] = useState(false)
   const [generatingMode, setGeneratingMode] = useState<"standard" | "enhanced" | null>(null)
@@ -65,7 +66,7 @@ export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialT
     if (arsenalMode) {
       // Arsenal mode: prefill body and recipient; skip generate UI gate
       setEditorContent(prefillBody ?? "")
-      setSubjectLine("")
+      setSubjectLine(initialSubject ?? "")
       setToField(initialTo ?? "")
       setHasGenerated(true)
       setHasStyleGuide(null)
@@ -86,7 +87,7 @@ export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialT
   // so closing the drawer or switching contacts aborts the pending probe.
   // Not needed in Arsenal mode since we never generate.
   useEffect(() => {
-    if (!open || !contact?.repEmail || arsenalMode) return
+    if (!open || arsenalMode || !contact?.repEmail) return
     let aborted = false
     const supabase = createClient()
     Promise.resolve(
@@ -105,7 +106,7 @@ export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialT
     return () => {
       aborted = true
     }
-  }, [open, contact?.repEmail])
+  }, [open, contact?.repEmail, arsenalMode])
 
   function handleOpenChange(isOpen: boolean) {
     if (isOpen && (contact || arsenalMode)) {
