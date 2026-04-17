@@ -1,0 +1,21 @@
+{
+  "name": "prompt-agent",
+  "version": "1.0.0",
+  "description": "Prompt engineering quality auditor for Claude API calls in Supabase Edge Functions",
+  "type": "module",
+  "scripts": {
+    "review": "tsx src/index.ts --mode review",
+    "review:file": "tsx src/index.ts --mode review",
+    "apply": "tsx src/index.ts --mode apply",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
