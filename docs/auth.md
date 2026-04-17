@@ -72,3 +72,12 @@ Access tokens expire after 1 hour. Always refresh; do not cache access tokens ac
 - **OAuth consent screen:** Internal app — no review required
 - **Authorized redirect URI:** must include the `auth-callback` Edge Function URL (e.g., `https://hjxaqhbkdvckapsqvqcq.supabase.co/functions/v1/auth-callback`)
 - **Client ID and secret:** stored as Supabase environment variables (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) — see `docs/infrastructure.md`
+
+---
+
+## Drive scope (added 2026-04-16)
+
+The OAuth flow requests `drive.readonly` to let reps attach Drive-hosted
+files to Gmail drafts. Existing reps must re-consent on their next login.
+Users who decline this scope cannot use the "Attach Drive file" toggle
+but can still send trackable links.
