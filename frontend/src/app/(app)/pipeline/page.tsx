@@ -1,8 +1,9 @@
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
-import { getPipelineData } from "@/lib/data/pipeline"
+import { getPipelineData, getPipelineStageAggregates } from "@/lib/data/pipeline"
 import { PipelineTable } from "@/components/pipeline/pipeline-table"
 import { PipelineFilters } from "@/components/pipeline/pipeline-filters"
+import { PipelineChart } from "@/components/pipeline/pipeline-chart"
 import PipelineLoading from "./loading"
 
 interface PipelinePageProps {
@@ -23,12 +24,15 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
   const stageFilter = params.stage ?? ""
   const search = params.q ?? ""
 
-  const data = await getPipelineData(repEmail, {
-    page,
-    pageSize: 25,
-    stageFilter: stageFilter || undefined,
-    search: search || undefined,
-  })
+  const [data, aggregates] = await Promise.all([
+    getPipelineData(repEmail, {
+      page,
+      pageSize: 25,
+      stageFilter: stageFilter || undefined,
+      search: search || undefined,
+    }),
+    getPipelineStageAggregates(repEmail),
+  ])
 
   const filterParams = new URLSearchParams()
   if (stageFilter) filterParams.set("stage", stageFilter)
@@ -36,13 +40,15 @@ export default async function PipelinePage({ searchParams }: PipelinePageProps) 
   const basePath = `/pipeline?${filterParams.toString()}${filterParams.toString() ? "&" : ""}`
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-kc-charcoal">Pipeline</h1>
         <p className="mt-1 text-kc-text-muted">
-          {data.totalCount} opportunities
+          {stageFilter ? `${data.totalCount} in ${stageFilter}` : `${data.totalCount} opportunities`}
         </p>
       </div>
+
+      <PipelineChart aggregates={aggregates} activeStage={stageFilter || null} />
 
       <PipelineFilters />
 
