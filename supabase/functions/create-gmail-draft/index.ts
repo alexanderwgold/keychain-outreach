@@ -14,8 +14,8 @@ interface CreateDraftRequest {
   bcc?: string[];
   subject: string;
   htmlBody: string;
-  contactId: string;
-  opportunityId: string;
+  contactId?: string;
+  opportunityId?: string;
   attachments?: Array<
     | { storageKey: string; filename: string }
     | { driveFileId: string; filename?: string }
@@ -34,9 +34,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const { repEmail, to, cc, bcc, subject, htmlBody, contactId, opportunityId, attachments } = body;
-  if (!repEmail || !to || !subject || !htmlBody || !contactId || !opportunityId) {
+  if (!repEmail || !to || !subject || !htmlBody) {
     return jsonResponse(
-      { error: "repEmail, to, subject, htmlBody, contactId, and opportunityId are required" },
+      { error: "repEmail, to, subject, and htmlBody are required" },
       400
     );
   }
@@ -140,22 +140,24 @@ Deno.serve(async (req: Request) => {
     const draftData = await gmailResponse.json();
     const draftId = draftData.id;
 
-    // Step 5: Log in activity_log
-    await client.from("activity_log").insert({
-      opportunity_id: opportunityId,
-      contact_id: contactId,
-      rep_email: repEmail,
-      activity_type: "email_sent",
-      activity_date: new Date().toISOString(),
-      subject,
-      notes: JSON.stringify({
-        gmail_draft_id: draftId,
-        attachments: attachments?.map((a) =>
-          'driveFileId' in a ? (a.filename ?? `drive:${a.driveFileId}`) : a.filename
-        ) ?? [],
-      }),
-      source: "manual",
-    });
+    // Step 5: Log in activity_log (only when both IDs are present — Arsenal sends omit them)
+    if (contactId && opportunityId) {
+      await client.from("activity_log").insert({
+        opportunity_id: opportunityId,
+        contact_id: contactId,
+        rep_email: repEmail,
+        activity_type: "email_sent",
+        activity_date: new Date().toISOString(),
+        subject,
+        notes: JSON.stringify({
+          gmail_draft_id: draftId,
+          attachments: attachments?.map((a) =>
+            'driveFileId' in a ? (a.filename ?? `drive:${a.driveFileId}`) : a.filename
+          ) ?? [],
+        }),
+        source: "manual",
+      });
+    }
 
     return jsonResponse({
       success: true,
