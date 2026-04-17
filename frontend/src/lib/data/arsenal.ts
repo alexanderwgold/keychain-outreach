@@ -29,14 +29,12 @@ export async function getRepArsenalItems(repEmail: string): Promise<{
     const [globalRes, mineRes] = await Promise.all([
       supabase.from("arsenal_items").select("*")
         .eq("visibility", "global").eq("active", true)
-        .in("type", ["reference", "collateral"])
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false }),
       supabase.from("arsenal_items").select("*")
         .eq("visibility", "private")
         .eq("owner_email", repEmail)
         .eq("active", true)
-        .in("type", ["reference", "collateral"])
         .order("created_at", { ascending: false }),
     ])
     if (globalRes.error) Sentry.captureException(globalRes.error)

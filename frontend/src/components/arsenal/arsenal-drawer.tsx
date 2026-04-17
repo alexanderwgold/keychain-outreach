@@ -136,72 +136,80 @@ export function ArsenalDrawer({
         {item.url}
       </a>
 
-      <div className="flex gap-2">
-        <Button onClick={createAndCopy} disabled={busy} className="gap-2">
-          <Copy className="h-4 w-4" /> Copy trackable link
-        </Button>
-        <Button
-          variant="secondary"
-          className="gap-2"
-          disabled={busy || creatingLink}
-          onClick={() => {
-            setInSendMode(true)
-            setSendErr(null)
-          }}
-        >
-          <Mail className="h-4 w-4" /> Send via Gmail
-        </Button>
-      </div>
-
-      {inSendMode && (
-        <section className="mt-4 space-y-3 rounded-lg border border-kc-warm-gray-dark bg-kc-warm-gray/40 p-4">
-          <label className="block space-y-1">
-            <span className="text-xs font-medium uppercase tracking-wide text-kc-text-muted">
-              Prospect email
-            </span>
-            <input
-              type="email"
-              value={prospectEmail}
-              onChange={(e) => setProspectEmail(e.target.value)}
-              placeholder="prospect@company.com"
-              className="w-full rounded border border-kc-warm-gray-dark bg-white px-3 py-2 text-sm"
-            />
-          </label>
-
-          {!item.storage_path && isDriveUrl(item.url) && (
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={attachDrive}
-                onChange={(e) => setAttachDrive(e.target.checked)}
-              />
-              <span className="text-kc-text">Attach the Drive file to the draft</span>
-            </label>
-          )}
-
-          {sendErr && <p className="text-sm text-red-600">{sendErr}</p>}
-
-          <div className="flex justify-end gap-2">
+      {item.type === "report" ? (
+        <p className="rounded-lg border border-kc-warm-gray-dark bg-kc-warm-gray/40 p-3 text-xs text-kc-text-muted">
+          Internal report — available for your reference. Not for sharing outside Keychain.
+        </p>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <Button onClick={createAndCopy} disabled={busy} className="gap-2">
+              <Copy className="h-4 w-4" /> Copy trackable link
+            </Button>
             <Button
-              variant="ghost"
-              size="sm"
+              variant="secondary"
+              className="gap-2"
+              disabled={busy || creatingLink}
               onClick={() => {
-                setInSendMode(false)
+                setInSendMode(true)
                 setSendErr(null)
               }}
-              disabled={creatingLink}
             >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={openDraftForSend}
-              disabled={creatingLink || !prospectEmail}
-            >
-              {creatingLink ? "Opening..." : "Open draft"}
+              <Mail className="h-4 w-4" /> Send via Gmail
             </Button>
           </div>
-        </section>
+
+          {inSendMode && (
+            <section className="mt-4 space-y-3 rounded-lg border border-kc-warm-gray-dark bg-kc-warm-gray/40 p-4">
+              <label className="block space-y-1">
+                <span className="text-xs font-medium uppercase tracking-wide text-kc-text-muted">
+                  Prospect email
+                </span>
+                <input
+                  type="email"
+                  value={prospectEmail}
+                  onChange={(e) => setProspectEmail(e.target.value)}
+                  placeholder="prospect@company.com"
+                  className="w-full rounded border border-kc-warm-gray-dark bg-white px-3 py-2 text-sm"
+                />
+              </label>
+
+              {!item.storage_path && isDriveUrl(item.url) && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={attachDrive}
+                    onChange={(e) => setAttachDrive(e.target.checked)}
+                  />
+                  <span className="text-kc-text">Attach the Drive file to the draft</span>
+                </label>
+              )}
+
+              {sendErr && <p className="text-sm text-red-600">{sendErr}</p>}
+
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setInSendMode(false)
+                    setSendErr(null)
+                  }}
+                  disabled={creatingLink}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={openDraftForSend}
+                  disabled={creatingLink || !prospectEmail}
+                >
+                  {creatingLink ? "Opening..." : "Open draft"}
+                </Button>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {stats && stats.openCount > 0 && (
