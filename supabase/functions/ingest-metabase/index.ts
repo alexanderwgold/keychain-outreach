@@ -49,20 +49,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Convert to KnowledgeChunk format
-    const knowledgeChunks: KnowledgeChunk[] = metabaseChunks.map((mc) => ({
-      sourceType: mc.sourceType,
-      sourceId: mc.sourceId,
-      accountName: mc.accountName,
-      content: mc.content,
-      metadata: mc.metadata,
-    }));
-
-    // Embed and upsert (batched)
-    const result = await upsertKnowledge(client, knowledgeChunks);
-
     // Save raw CSV to arsenal Storage + upsert arsenal_items row of type=report.
+    // Runs BEFORE knowledge upsert so we can thread arsenal_item_id into each
+    // knowledge_base row's metadata for downstream retrievers.
     // Snapshot failure must NOT fail the overall ingest.
+    let arsenalItemId: string | null = null;
     let arsenalSnapshot: {
       path: string;
       status: "created" | "updated" | "skipped";
@@ -106,6 +97,7 @@ Deno.serve(async (req: Request) => {
             arsenalSnapshot = { path, status: "skipped", error: `update failed: ${updateErr.message}` };
             console.error("arsenal snapshot update failed:", updateErr.message);
           } else {
+            arsenalItemId = existing.id;
             arsenalSnapshot = { path, status: "updated", itemId: existing.id };
           }
         } else {
@@ -127,6 +119,7 @@ Deno.serve(async (req: Request) => {
             arsenalSnapshot = { path, status: "skipped", error: `insert failed: ${insertErr.message}` };
             console.error("arsenal snapshot insert failed:", insertErr.message);
           } else {
+            arsenalItemId = inserted.id;
             arsenalSnapshot = { path, status: "created", itemId: inserted.id };
           }
         }
@@ -139,6 +132,21 @@ Deno.serve(async (req: Request) => {
         error: (snapErr as Error).message,
       };
     }
+
+    // Convert to KnowledgeChunk format, threading arsenal_item_id into metadata
+    // when the snapshot succeeded so downstream retrievers can surface the link.
+    const knowledgeChunks: KnowledgeChunk[] = metabaseChunks.map((mc) => ({
+      sourceType: mc.sourceType,
+      sourceId: mc.sourceId,
+      accountName: mc.accountName,
+      content: mc.content,
+      metadata: arsenalItemId
+        ? { ...mc.metadata, arsenal_item_id: arsenalItemId }
+        : mc.metadata,
+    }));
+
+    // Embed and upsert (batched)
+    const result = await upsertKnowledge(client, knowledgeChunks);
 
     return jsonResponse({
       rowsProcessed: metabaseChunks.length,
