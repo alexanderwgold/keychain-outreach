@@ -111,10 +111,24 @@ export function AddItemDialog({
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/..." className="w-full rounded border border-kc-warm-gray-dark px-3 py-2 text-sm" />
           </label>
         ) : (
-          <label className="block space-y-1">
-            <span className="text-sm text-kc-text">File</span>
-            <input type="file" accept="application/pdf,text/csv,image/png,image/jpeg" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
+          <div className="space-y-1">
+            <span className="block text-sm text-kc-text">File</span>
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded border border-kc-warm-gray-dark bg-white px-3 py-2 text-sm transition hover:border-kc-gold">
+              <span className={`truncate ${file ? "text-kc-charcoal" : "text-kc-text-muted"}`}>
+                {file ? file.name : "Choose a PDF, CSV, or image…"}
+              </span>
+              <span className="shrink-0 rounded bg-kc-warm-gray px-3 py-1 text-xs font-medium text-kc-charcoal">
+                Browse
+              </span>
+              <input
+                type="file"
+                accept="application/pdf,text/csv,image/png,image/jpeg"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                className="sr-only"
+              />
+            </label>
+            <p className="text-xs text-kc-text-muted">PDF, CSV, PNG, or JPEG · up to 50 MB</p>
+          </div>
         )}
 
         <label className="block space-y-1">
