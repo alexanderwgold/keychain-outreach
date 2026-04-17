@@ -14,7 +14,6 @@ type Stats = Record<string, { openCount: number; lastOpenedAt: string | null; li
 const TABS: { key: ArsenalShelf; label: string }[] = [
   { key: "reference", label: "Reference" },
   { key: "collateral", label: "Collateral" },
-  { key: "report", label: "Reports" },
 ]
 
 export function RepArsenalClient({

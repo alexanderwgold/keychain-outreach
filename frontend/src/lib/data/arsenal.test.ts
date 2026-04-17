@@ -11,6 +11,7 @@ vi.mock("@/lib/supabase/server", () => ({
       const chain: any = {
         select: () => chain,
         eq: () => chain,
+        in: () => chain,
         order: () => chain,
         then: (resolve: any) => {
           const data = state.callCount++ === 0 ? [{ id: "a", visibility: "global" }] : []
