@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react"
 import type { ArsenalItem, ArsenalItemWithStats, ArsenalShelf } from "@/lib/types"
 import { createClient } from "@/lib/supabase/client"
 import { ArsenalTile } from "./arsenal-tile"
-import { ArsenalDrawer } from "./arsenal-drawer"
+import { ArsenalDrawer, type ArsenalSendPayload } from "./arsenal-drawer"
 import { AddItemDialog } from "./add-item-dialog"
 import { Button } from "@/components/ui/button"
+import { DraftDrawer } from "@/components/drafting/draft-drawer"
 
 type Stats = Record<string, { openCount: number; lastOpenedAt: string | null; linkSlug: string | null }>
 
@@ -32,6 +33,16 @@ export function RepArsenalClient({
   const [mine, setMine] = useState(mineItems)
   const [addOpen, setAddOpen] = useState(false)
   const [stats, setStats] = useState<Stats>({})
+  const [draftOpen, setDraftOpen] = useState(false)
+  const [draftPayload, setDraftPayload] = useState<ArsenalSendPayload | null>(null)
+
+  function handleSend(payload: ArsenalSendPayload) {
+    setDraftPayload(payload)
+    setDraftOpen(true)
+    // Close the arsenal drawer so the DraftDrawer (hoisted here) sits cleanly
+    // and we avoid z-index conflicts with the fixed-position aside.
+    setActiveItem(null)
+  }
 
   useEffect(() => {
     if (itemIds.length === 0) return
@@ -117,6 +128,7 @@ export function RepArsenalClient({
         item={activeItem}
         onClose={() => setActiveItem(null)}
         stats={activeItem ? stats[activeItem.id] ?? null : null}
+        onSend={handleSend}
       />
 
       <AddItemDialog
@@ -126,6 +138,25 @@ export function RepArsenalClient({
         defaultType="collateral"
         onCreated={(item) => setMine((prev) => [item, ...prev])}
       />
+
+      {draftPayload && (
+        <DraftDrawer
+          open={draftOpen}
+          onOpenChange={(o) => {
+            setDraftOpen(o)
+            if (!o) {
+              // Clear payload so the next Send produces a fresh drawer with
+              // new initial props and a fresh resetState run inside DraftDrawer.
+              setDraftPayload(null)
+            }
+          }}
+          contact={null}
+          prefillBody={draftPayload.prefillBody}
+          initialTo={draftPayload.initialTo}
+          initialSubject={draftPayload.initialSubject}
+          extraAttachments={draftPayload.extraAttachments}
+        />
+      )}
     </div>
   )
 }
