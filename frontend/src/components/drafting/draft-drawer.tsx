@@ -30,9 +30,19 @@ interface DraftDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   contact: ContactContext | null
+  // Arsenal-send mode: when contact is null AND these are provided, drawer
+  // skips generate/style-guide UI and uses the prefilled body directly.
+  prefillBody?: string
+  initialTo?: string
+  initialSubject?: string
+  extraAttachments?: Array<
+    | { storageKey: string; filename: string }
+    | { driveFileId: string; filename?: string }
+  >
 }
 
-export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
+export function DraftDrawer({ open, onOpenChange, contact, prefillBody, initialTo, initialSubject, extraAttachments }: DraftDrawerProps) {
+  const arsenalMode = !contact && !!prefillBody
   const [generating, setGenerating] = useState(false)
   const [generatingMode, setGeneratingMode] = useState<"standard" | "enhanced" | null>(null)
   const [creatingDraft, setCreatingDraft] = useState(false)
@@ -48,25 +58,36 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
   const [hasStyleGuide, setHasStyleGuide] = useState<boolean | null>(null)
 
   function resetState() {
-    setEditorContent("")
-    setSubjectLine("")
     setCcField("")
     setBccField("")
     setShowCcBcc(false)
     setAttachments([])
-    setHasGenerated(false)
     setDraftCreated(false)
-    setToField(contact?.contactEmail ?? "")
-    // Style-guide presence is probed in an effect below so we don't setState
-    // after unmount if the drawer closes mid-request.
-    setHasStyleGuide(null)
+    if (arsenalMode) {
+      // Arsenal mode: prefill body and recipient; skip generate UI gate
+      setEditorContent(prefillBody ?? "")
+      setSubjectLine(initialSubject ?? "")
+      setToField(initialTo ?? "")
+      setHasGenerated(true)
+      setHasStyleGuide(null)
+    } else {
+      // Opportunity flow: unchanged behavior
+      setEditorContent("")
+      setSubjectLine("")
+      setToField(contact?.contactEmail ?? "")
+      setHasGenerated(false)
+      // Style-guide presence is probed in an effect below so we don't setState
+      // after unmount if the drawer closes mid-request.
+      setHasStyleGuide(null)
+    }
   }
 
   // Probe whether the rep has a style guide; session JWT satisfies the
   // `to authenticated` RLS policy on rep_style_guides. Keyed on open+repEmail
   // so closing the drawer or switching contacts aborts the pending probe.
+  // Not needed in Arsenal mode since we never generate.
   useEffect(() => {
-    if (!open || !contact?.repEmail) return
+    if (!open || arsenalMode || !contact?.repEmail) return
     let aborted = false
     const supabase = createClient()
     Promise.resolve(
@@ -85,10 +106,10 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
     return () => {
       aborted = true
     }
-  }, [open, contact?.repEmail])
+  }, [open, contact?.repEmail, arsenalMode])
 
   function handleOpenChange(isOpen: boolean) {
-    if (isOpen && contact) {
+    if (isOpen && (contact || arsenalMode)) {
       resetState()
     }
     onOpenChange(isOpen)
@@ -144,7 +165,7 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
   }
 
   async function handleCreateDraft() {
-    if (!contact) return
+    if (!contact && !arsenalMode) return
     setCreatingDraft(true)
 
     try {
@@ -154,6 +175,35 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
         if (!session) {
           throw new Error("Please sign in again")
         }
+
+        // In arsenal mode, repEmail comes from the session since there's no contact
+        const { data: { user } } = await supabase.auth.getUser()
+        const repEmail = contact?.repEmail ?? user?.email
+        if (!repEmail) throw new Error("Not signed in")
+
+        const localAttachments = attachments.map((a) => ({ storageKey: a.storageKey, filename: a.filename }))
+        const allAttachments = [...localAttachments, ...(extraAttachments ?? [])]
+
+        const payload: Record<string, unknown> = {
+          repEmail,
+          to: toField,
+          cc: ccField
+            ? ccField.split(",").map((e) => e.trim()).filter(Boolean)
+            : undefined,
+          bcc: bccField
+            ? bccField.split(",").map((e) => e.trim()).filter(Boolean)
+            : undefined,
+          subject: subjectLine,
+          htmlBody: editorContent,
+          attachments: allAttachments.length > 0 ? allAttachments : undefined,
+        }
+
+        // Opportunity flow: include contact/opportunity IDs for activity_log
+        if (contact) {
+          payload.contactId = contact.contactId
+          payload.opportunityId = contact.opportunityId
+        }
+
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-gmail-draft`,
           {
@@ -162,23 +212,7 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
               Authorization: `Bearer ${session.access_token}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              repEmail: contact.repEmail,
-              to: toField,
-              cc: ccField
-                ? ccField.split(",").map((e) => e.trim()).filter(Boolean)
-                : undefined,
-              bcc: bccField
-                ? bccField.split(",").map((e) => e.trim()).filter(Boolean)
-                : undefined,
-              subject: subjectLine,
-              htmlBody: editorContent,
-              contactId: contact.contactId,
-              opportunityId: contact.opportunityId,
-              attachments: attachments.length > 0
-                ? attachments.map((a) => ({ storageKey: a.storageKey, filename: a.filename }))
-                : undefined,
-            }),
+            body: JSON.stringify(payload),
           }
         )
 
@@ -207,30 +241,39 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
         <SheetHeader>
           <SheetTitle className="text-lg">Draft Email</SheetTitle>
         </SheetHeader>
-        {contact && (
+        {(contact || arsenalMode) && (
           <div className="mt-4 space-y-4">
-            {/* Contact context card */}
-            <div className="rounded-lg bg-kc-warm-gray p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-kc-charcoal">{contact.contactName}</p>
-                  <p className="text-xs text-kc-text-muted">
-                    {contact.accountName}
-                    {contact.contactTitle && ` · ${contact.contactTitle}`}
-                  </p>
+            {/* Context card — opportunity flow shows contact info; Arsenal shows generic header */}
+            {contact ? (
+              <div className="rounded-lg bg-kc-warm-gray p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-kc-charcoal">{contact.contactName}</p>
+                    <p className="text-xs text-kc-text-muted">
+                      {contact.accountName}
+                      {contact.contactTitle && ` · ${contact.contactTitle}`}
+                    </p>
+                  </div>
+                  <StageBadge stage={contact.stageName} />
                 </div>
-                <StageBadge stage={contact.stageName} />
               </div>
-            </div>
+            ) : (
+              <div className="rounded-lg bg-kc-warm-gray p-3">
+                <p className="text-sm font-medium text-kc-charcoal">Send content</p>
+                <p className="text-xs text-kc-text-muted">Fill in recipient and subject, then create the draft.</p>
+              </div>
+            )}
 
-            {/* Contact email history */}
-            <ContactEmails
-              repEmail={contact.repEmail}
-              contactEmail={contact.contactEmail}
-            />
+            {/* Contact email history — opportunity flow only */}
+            {contact && (
+              <ContactEmails
+                repEmail={contact.repEmail}
+                contactEmail={contact.contactEmail}
+              />
+            )}
 
-            {/* Style guide gate */}
-            {hasStyleGuide === false && !generating && (
+            {/* Style guide gate — opportunity flow only */}
+            {!arsenalMode && hasStyleGuide === false && !generating && (
               <Card className="border-kc-gold/30 bg-kc-gold-subtle/20">
                 <CardContent className="p-4 text-center">
                   <p className="text-sm font-medium text-kc-charcoal">
@@ -249,8 +292,8 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
               </Card>
             )}
 
-            {/* Generate buttons — shown before first generation */}
-            {!hasGenerated && !generating && hasStyleGuide && (
+            {/* Generate buttons — opportunity flow only, shown before first generation */}
+            {!arsenalMode && !hasGenerated && !generating && hasStyleGuide && (
               <div className="flex gap-2">
                 <Button
                   onClick={() => handleGenerate("standard")}
@@ -294,7 +337,7 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
               </div>
             )}
 
-            {/* Email compose form — shown after generation */}
+            {/* Email compose form — shown after generation (both modes) */}
             {hasGenerated && !draftCreated && (
               <>
                 <Separator />
@@ -370,29 +413,31 @@ export function DraftDrawer({ open, onOpenChange, contact }: DraftDrawerProps) {
 
                 <Separator />
 
-                {/* Regenerate buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => handleGenerate("standard")}
-                    variant="outline"
-                    size="sm"
-                    disabled={generating}
-                    className="gap-1.5 text-xs"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Regenerate
-                  </Button>
-                  <Button
-                    onClick={() => handleGenerate("enhanced")}
-                    variant="outline"
-                    size="sm"
-                    disabled={generating}
-                    className="gap-1.5 text-xs"
-                  >
-                    <Search className="h-3.5 w-3.5" />
-                    Regenerate Enhanced
-                  </Button>
-                </div>
+                {/* Regenerate buttons — opportunity flow only */}
+                {!arsenalMode && (
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleGenerate("standard")}
+                      variant="outline"
+                      size="sm"
+                      disabled={generating}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      Regenerate
+                    </Button>
+                    <Button
+                      onClick={() => handleGenerate("enhanced")}
+                      variant="outline"
+                      size="sm"
+                      disabled={generating}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      Regenerate Enhanced
+                    </Button>
+                  </div>
+                )}
 
                 {/* Action bar */}
                 <div className="flex gap-2 pt-2">

@@ -92,6 +92,66 @@ After successful completion, update `rep_tokens.last_scan_at = now()`.
 
 ---
 
+### `arsenal-create-link`
+
+**Trigger:** HTTP POST, rep JWT required
+
+**Request:** `{ itemId: string, prospectEmail?: string }`
+
+**Response:** `{ slug: string }` (200), or `{ error }` (400/401/403/404/500)
+
+**What it does:**
+1. Verifies the caller can read the item: `visibility = 'global'` OR `visibility = 'private' AND owner_email = caller`. Returns 403 otherwise, 404 if the item is missing or inactive.
+2. Dedupes: if an active `collateral_links` row already exists for `(item_id, rep_email, prospect_email)`, returns that slug — no insert.
+3. Otherwise generates an 8-char base62 slug via `crypto.getRandomValues` and inserts. Retries up to 3 times on `23505` unique-violation (slug collision); any other error bails immediately.
+
+### `arsenal-stats`
+
+**Trigger:** HTTP GET, rep JWT required
+
+**Request:** query `?itemIds=a,b,c` (comma-separated)
+
+**Response:** `{ [itemId]: { openCount: number, lastOpenedAt: string | null, linkSlug: string | null } }`
+
+**What it does:**
+- Queries `collateral_links` embedded with `collateral_events` for the caller's active links, filtered to the requested `item_id`s.
+- Applies the bot-filter from `_shared/bot-filter.ts` (26 UA patterns including Googlebot, Slackbot, safelinks, curl, headlessChrome, etc.) at read time — events are filtered before counting.
+- Items with no link or no human events return `{ openCount: 0, lastOpenedAt: null, linkSlug: null }`.
+
+### `arsenal-upload-url`
+
+**Trigger:** HTTP POST, rep JWT required (admin further enforced for `scope=global`)
+
+**Request:** `{ filename: string, scope: 'global' | 'private' }`
+
+**Response:** `{ uploadUrl: string, token: string, path: string }`
+
+**What it does:**
+1. For `scope=global`, looks up `rep_mapping.is_admin` for the caller and returns 403 if not admin. Note the admin gate is the DB column, not the `app.admin_emails` env var used elsewhere.
+2. Sanitizes the filename (`/[^a-zA-Z0-9._-]/g → _`) and namespaces with `crypto.randomUUID()`, yielding `global/{uuid}-{safe}` or `private/{caller-email}/{uuid}-{safe}`.
+3. Returns a Supabase Storage signed upload URL via `storage.from('arsenal').createSignedUploadUrl(key)` — the client PUTs the bytes directly to Storage.
+
+---
+
+## Modified functions
+
+### `create-gmail-draft` (v9)
+
+- `contactId` and `opportunityId` are now **optional** — this supports the Arsenal-send path, which sends trackable collateral not tied to a specific opportunity.
+- `activity_log` insert is skipped when either ID is missing.
+- `attachments` accepts a union per entry: `{ storageKey, filename }` (Supabase Storage, existing) OR `{ driveFileId, filename? }` (Google Drive). Drive entries are fetched via `_shared/drive-download.ts`, which handles Google-native exports (Docs → PDF, Slides → PDF, Sheets → CSV) and binary files via `?alt=media`.
+- Failed downloads are collected into a `failedAttachments` array on the response rather than aborting the whole draft.
+
+### `ingest-metabase` (v7)
+
+After a successful CSV parse and **before** the knowledge upsert, uploads the raw CSV to `arsenal/global/metabase/{reportSlug}-{YYYY-MM-DD}.csv` (`upsert: true`) and upserts a `type='report'` row in `arsenal_items` keyed by `storage_path`. Snapshot failure is **non-fatal** — the knowledge ingest still runs.
+
+Response shape gains `arsenalSnapshot: { path, status: 'created' | 'updated' | 'skipped', itemId?, error? }`.
+
+The resulting `arsenal_items.id` is merged into each `knowledge_base` row's `metadata` as `arsenal_item_id`, so downstream retrievers (and Claude) can trace which Metabase snapshot a retrieved insight came from.
+
+---
+
 ## Calendar write actions (used by both functions)
 
 With `calendar.events` scope, the system can create events. These are used to:

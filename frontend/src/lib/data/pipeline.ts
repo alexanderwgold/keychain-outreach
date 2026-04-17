@@ -11,6 +11,11 @@ export interface PipelineRow {
   stageName: string
   amount: number | null
   closeDate: string | null
+  nextStep: string | null
+  nextStepsNotes: string | null
+  description: string | null
+  categories: string | null
+  companyCategory: string | null
   contactName: string
   contactEmail: string | null
   contactTitle: string | null
@@ -27,6 +32,12 @@ export interface PipelineResult {
   totalCount: number
   page: number
   pageSize: number
+}
+
+export interface StageAggregate {
+  stageName: string
+  count: number
+  totalAmount: number
 }
 
 // PostgREST's `.or(ilike)` takes a raw filter expression — interpolating user
@@ -65,6 +76,11 @@ export async function getPipelineData(
         stage_name,
         amount,
         close_date,
+        next_step,
+        next_steps_c,
+        description,
+        categories,
+        company_category,
         opportunity_contacts!inner(
           primary,
           contacts!inner(id, first_name, last_name, email, title)
@@ -141,6 +157,11 @@ export async function getPipelineData(
         stageName: opp.stage_name,
         amount: opp.amount,
         closeDate: opp.close_date,
+        nextStep: opp.next_step ?? null,
+        nextStepsNotes: opp.next_steps_c ?? null,
+        description: opp.description ?? null,
+        categories: opp.categories ?? null,
+        companyCategory: opp.company_category ?? null,
         contactName: `${contact.first_name} ${contact.last_name}`,
         contactEmail: contact.email,
         contactTitle: contact.title,
@@ -159,5 +180,44 @@ export async function getPipelineData(
     })
 
     return { rows, totalCount: count ?? 0, page, pageSize }
+  })
+}
+
+/**
+ * Stage-level aggregates across ALL of the rep's opportunities — not filtered
+ * by search or stage so the funnel/chart stays stable while the user is
+ * drilling into a subset in the table below.
+ */
+export async function getPipelineStageAggregates(
+  repEmail: string
+): Promise<StageAggregate[]> {
+  return Sentry.startSpan({ name: "pipeline.getPipelineStageAggregates", op: "db.query" }, async () => {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from("opportunities")
+      .select("stage_name, amount")
+      .eq("rep_email", repEmail)
+      .not("stage_name", "is", null)
+
+    if (error) {
+      Sentry.captureException(error)
+      return []
+    }
+
+    const byStage = new Map<string, { count: number; totalAmount: number }>()
+    for (const row of data ?? []) {
+      if (!row.stage_name) continue
+      const entry = byStage.get(row.stage_name) ?? { count: 0, totalAmount: 0 }
+      entry.count += 1
+      entry.totalAmount += Number(row.amount) || 0
+      byStage.set(row.stage_name, entry)
+    }
+
+    return Array.from(byStage.entries()).map(([stageName, { count, totalAmount }]) => ({
+      stageName,
+      count,
+      totalAmount,
+    }))
   })
 }

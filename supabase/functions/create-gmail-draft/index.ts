@@ -3,6 +3,7 @@ import { refreshGoogleToken, googleApiFetch } from "../_shared/google-auth.ts";
 import { corsPreflightResponse, jsonResponse } from "../_shared/cors.ts";
 import { requireSelf } from "../_shared/auth.ts";
 import { buildMimeMessage, base64UrlEncode, type MimeAttachment } from "./mime.ts";
+import { downloadDriveFile } from "../_shared/drive-download.ts";
 
 const GMAIL_DRAFTS_URL = "https://gmail.googleapis.com/gmail/v1/users/me/drafts";
 
@@ -13,9 +14,12 @@ interface CreateDraftRequest {
   bcc?: string[];
   subject: string;
   htmlBody: string;
-  contactId: string;
-  opportunityId: string;
-  attachments?: { storageKey: string; filename: string }[];
+  contactId?: string;
+  opportunityId?: string;
+  attachments?: Array<
+    | { storageKey: string; filename: string }
+    | { driveFileId: string; filename?: string }
+  >;
 }
 
 Deno.serve(async (req: Request) => {
@@ -30,9 +34,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const { repEmail, to, cc, bcc, subject, htmlBody, contactId, opportunityId, attachments } = body;
-  if (!repEmail || !to || !subject || !htmlBody || !contactId || !opportunityId) {
+  if (!repEmail || !to || !subject || !htmlBody) {
     return jsonResponse(
-      { error: "repEmail, to, subject, htmlBody, contactId, and opportunityId are required" },
+      { error: "repEmail, to, subject, and htmlBody are required" },
       400
     );
   }
@@ -51,6 +55,26 @@ Deno.serve(async (req: Request) => {
     const failedAttachments: string[] = [];
     if (attachments?.length) {
       for (const att of attachments) {
+        if ('driveFileId' in att) {
+          try {
+            const drive = await downloadDriveFile(att.driveFileId, accessToken);
+            let binary = "";
+            for (const byte of drive.bytes) {
+              binary += String.fromCharCode(byte);
+            }
+            const base64Content = btoa(binary);
+            mimeAttachments.push({
+              filename: drive.filename,
+              mimeType: drive.mimeType,
+              base64Content,
+            });
+          } catch (err) {
+            console.error(`Failed to download Drive file ${att.driveFileId}:`, (err as Error).message);
+            failedAttachments.push(att.filename ?? `drive:${att.driveFileId}`);
+          }
+          continue;
+        }
+
         const { data, error } = await client.storage
           .from("collateral")
           .download(att.storageKey);
@@ -116,20 +140,24 @@ Deno.serve(async (req: Request) => {
     const draftData = await gmailResponse.json();
     const draftId = draftData.id;
 
-    // Step 5: Log in activity_log
-    await client.from("activity_log").insert({
-      opportunity_id: opportunityId,
-      contact_id: contactId,
-      rep_email: repEmail,
-      activity_type: "email_sent",
-      activity_date: new Date().toISOString(),
-      subject,
-      notes: JSON.stringify({
-        gmail_draft_id: draftId,
-        attachments: attachments?.map((a) => a.filename) ?? [],
-      }),
-      source: "manual",
-    });
+    // Step 5: Log in activity_log (only when both IDs are present — Arsenal sends omit them)
+    if (contactId && opportunityId) {
+      await client.from("activity_log").insert({
+        opportunity_id: opportunityId,
+        contact_id: contactId,
+        rep_email: repEmail,
+        activity_type: "email_sent",
+        activity_date: new Date().toISOString(),
+        subject,
+        notes: JSON.stringify({
+          gmail_draft_id: draftId,
+          attachments: attachments?.map((a) =>
+            'driveFileId' in a ? (a.filename ?? `drive:${a.driveFileId}`) : a.filename
+          ) ?? [],
+        }),
+        source: "manual",
+      });
+    }
 
     return jsonResponse({
       success: true,

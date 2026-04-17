@@ -1,27 +1,35 @@
-import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { ACTIVE_STAGES } from "@/lib/constants"
+import { getStageColor, withAlpha } from "@/lib/stage-styles"
 
 interface StageBadgeProps {
   stage: string
   className?: string
+  /** Render a larger, bolder version — for the chart legend. */
+  size?: "sm" | "md"
 }
 
-export function StageBadge({ stage, className }: StageBadgeProps) {
-  const isActive = ACTIVE_STAGES.has(stage)
+export function StageBadge({ stage, className, size = "sm" }: StageBadgeProps) {
+  const color = getStageColor(stage)
 
   return (
-    <Badge
-      variant="secondary"
+    <span
       className={cn(
-        "font-normal",
-        isActive
-          ? "border-kc-gold/30 bg-kc-gold-subtle text-kc-charcoal"
-          : "border-kc-warm-gray-dark bg-kc-warm-gray text-kc-text-muted",
+        "inline-flex items-center gap-1.5 rounded-full border font-medium whitespace-nowrap",
+        size === "sm" ? "px-2 py-0.5 text-[11px] leading-4" : "px-2.5 py-1 text-xs leading-4",
         className
       )}
+      style={{
+        backgroundColor: withAlpha(color, 0.10),
+        borderColor: withAlpha(color, 0.30),
+        color: "#1C1C1E",
+      }}
     >
+      <span
+        aria-hidden
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: color }}
+      />
       {stage}
-    </Badge>
+    </span>
   )
 }
