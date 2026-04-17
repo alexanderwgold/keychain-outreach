@@ -39,7 +39,7 @@ export async function GET(
 
   const { data: link } = await supabase
     .from("collateral_links")
-    .select("id, active, item_id, arsenal_items(url, active)")
+    .select("id, active, item_id, arsenal_items(url, active, storage_path)")
     .eq("slug", slug)
     .maybeSingle()
 
@@ -61,7 +61,19 @@ export async function GET(
     referrer: request.headers.get("referer"),
   })
 
-  const redirect = NextResponse.redirect(item.url, 302)
+  let redirectUrl = item.url
+  if (item.storage_path) {
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("arsenal")
+      .createSignedUrl(item.storage_path, 300)
+    if (signErr) {
+      console.error(`createSignedUrl failed for ${item.storage_path}:`, signErr.message)
+    } else if (signed?.signedUrl) {
+      redirectUrl = signed.signedUrl
+    }
+  }
+
+  const redirect = NextResponse.redirect(redirectUrl, 302)
   redirect.headers.set("cache-control", "no-store")
   return redirect
 }
