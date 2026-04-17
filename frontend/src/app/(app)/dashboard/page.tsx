@@ -31,12 +31,12 @@ export default async function DashboardPage() {
       <BriefingHeader repName={repName} stats={stats} />
 
       <div className="space-y-4">
-        <OverdueContactsList contacts={overdueContacts} repEmail={repEmail} />
-
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <PendingDraftsList drafts={pendingDrafts} />
           <UpcomingMeetingsList meetings={upcomingMeetings} />
         </div>
+
+        <OverdueContactsList contacts={overdueContacts} repEmail={repEmail} />
       </div>
     </div>
   )
